@@ -1,0 +1,21 @@
+# Folders to ignore
+archive/
+debug/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Deno
+deno.lock
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
