@@ -1,6 +1,8 @@
 # ES-8 Web Sequencer
 
-A browser-based control interface for Expert Sleepers ES-8 DC-coupled audio interface, enabling precise CV and gate control of Eurorack modular synthesizers directly from your web browser.
+A browser-based control interface for Expert Sleepers ES-8 DC-coupled audio
+interface, enabling precise CV and gate control of Eurorack modular synthesizers
+directly from your web browser.
 
 ## Features
 
@@ -58,21 +60,25 @@ A browser-based control interface for Expert Sleepers ES-8 DC-coupled audio inte
 ### Channel Modes
 
 #### Trigger Mode
+
 - Click cells to create trigger patterns
 - Outputs 10V gates (20ms duration)
 
 #### LFO Mode
+
 - **Waveform**: Ramp or Sine
 - **Rate**: 1-16 sub-cycles per pattern
 - **Duty**: Ramp shape control (0-100%)
 - **Width**: Output amplitude (0-100%)
 
 #### 1V/Oct Mode
+
 - Enter pitch values (-36 to +36 semitones)
 - Empty cells maintain previous voltage
 - Follows 1V/octave standard
 
 #### S&H Mode
+
 - **Rand**: New random values each cycle
 - **Shuf**: Same values between cycles
 - **Width**: Scales output amplitude
@@ -93,7 +99,9 @@ A browser-based control interface for Expert Sleepers ES-8 DC-coupled audio inte
 
 ## Channel Mapping
 
-The ES-8 channel mapping may vary by system. The interface automatically maps to the first 8 available output channels. If you experience channel routing issues, check your audio device configuration.
+The ES-8 channel mapping may vary by system. The interface automatically maps to
+the first 8 available output channels. If you experience channel routing issues,
+check your audio device configuration.
 
 ## Troubleshooting
 
@@ -104,6 +112,7 @@ The ES-8 channel mapping may vary by system. The interface automatically maps to
 ## Development
 
 Built with:
+
 - Deno for the HTTP server
 - Vanilla JavaScript with Web Audio API
 - AudioWorklet for real-time audio processing

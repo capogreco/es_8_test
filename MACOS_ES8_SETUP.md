@@ -2,7 +2,8 @@
 
 ## Quick Fix for "Only Channels 1-2 Working" Issue
 
-Your ES-8 is connected and recognized, but macOS is only sending audio to channels 1-2. Here's how to fix it:
+Your ES-8 is connected and recognized, but macOS is only sending audio to
+channels 1-2. Here's how to fix it:
 
 ## Step 1: Open Audio MIDI Setup
 
@@ -30,6 +31,7 @@ Your ES-8 is connected and recognized, but macOS is only sending audio to channe
    - **24-bit Integer** (or 32-bit Float)
 
 If it shows "2 ch":
+
 - Click the dropdown and select a format with "8 ch"
 - Choose "8 ch 24-bit Integer 48000 Hz" if available
 
@@ -55,7 +57,8 @@ If the above doesn't work, create an aggregate device:
 ## Common Issues & Solutions
 
 ### ES-8 Still Shows as 2-channel
-- **Restart Core Audio**: 
+
+- **Restart Core Audio**:
   ```bash
   sudo killall coreaudiod
   ```
@@ -63,11 +66,13 @@ If the above doesn't work, create an aggregate device:
 - **Try a different USB port** (preferably USB 3.0)
 
 ### "Configure Speakers" Option Missing
+
 - Make sure ES-8 is the selected device
 - Try clicking the gear icon instead of right-clicking
 - Update macOS if you're on an older version
 
 ### Browser Still Only Uses 2 Channels
+
 1. Close all browser tabs using audio
 2. Quit and restart the browser
 3. Clear the browser's audio device cache:
@@ -77,6 +82,7 @@ If the above doesn't work, create an aggregate device:
 ## Terminal Commands for Debugging
 
 Check ES-8 audio configuration:
+
 ```bash
 # List audio devices with channel info
 system_profiler SPAudioDataType | grep -A 10 "ES-8"
@@ -97,6 +103,7 @@ ES-8 (20b1:308d)
 ```
 
 NOT:
+
 ```
 ES-8 (20b1:308d)
 ├─ Format: 2 ch 24-bit Integer 48000.0 Hz  ❌
@@ -110,19 +117,22 @@ ES-8 (20b1:308d)
    sudo killall coreaudiod
    ```
 
-2. **Check ES-8 firmware**: Ensure you have the latest firmware from Expert Sleepers
+2. **Check ES-8 firmware**: Ensure you have the latest firmware from Expert
+   Sleepers
 
 3. **Try USB 2.0 mode**: Some Macs have issues with USB 3.0 audio devices
 
-4. **Create separate stereo pairs**: If macOS insists on stereo, create 4 aggregate devices:
+4. **Create separate stereo pairs**: If macOS insists on stereo, create 4
+   aggregate devices:
    - ES-8 Ch 1-2
-   - ES-8 Ch 3-4  
+   - ES-8 Ch 3-4
    - ES-8 Ch 5-6
    - ES-8 Ch 7-8
 
 ## Success Indicators
 
 When properly configured:
+
 - Audio MIDI Setup shows "8 ch" for ES-8
 - Browser diagnostic shows "Active channels: 8/8"
 - All channel test tones are audible
@@ -132,4 +142,5 @@ When properly configured:
 
 - Check Console.app for Core Audio errors
 - Run the diagnostic page in Debug mode
-- Contact Expert Sleepers support with your macOS version and Audio MIDI Setup screenshot
+- Contact Expert Sleepers support with your macOS version and Audio MIDI Setup
+  screenshot
