@@ -54,11 +54,13 @@ export const MESSAGE_TYPES = {
   // Transport control
   START: 'start',
   STOP: 'stop',
+  PAUSE: 'pause',
   
   // Configuration
   SET_CYCLE_TIME: 'setCycleTime',
   SET_SUBDIVISIONS: 'setSubdivisions',
   SET_CHANNEL_SUBDIVISIONS: 'setChannelSubdivisions',
+  SET_POLYRHYTHM: 'setPolyrhythm',
   
   // Channel configuration
   SET_CHANNEL_MODE: 'setChannelMode',
@@ -100,6 +102,7 @@ export const DEFAULT_LFO = {
   duty: 0.5,
   width: 1.0,
   phase: 0,  // Phase offset 0-1 (0 = no offset, 1 = full cycle)
+  depth: 1.0,  // LFO depth/amplitude
 };
 
 // Default S&H configuration  

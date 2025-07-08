@@ -93,6 +93,10 @@ class AudioWorkletService {
     this.sendMessage(MESSAGE_TYPES.STOP);
   }
 
+  pause() {
+    this.sendMessage(MESSAGE_TYPES.PAUSE);
+  }
+
   // === Configuration Methods ===
 
   setCycleTime(cycleTime) {
@@ -107,6 +111,14 @@ class AudioWorkletService {
     this.sendMessage(MESSAGE_TYPES.SET_CHANNEL_SUBDIVISIONS, {
       channel,
       subdivisions
+    });
+  }
+
+  setPolyrhythm(channel, enabled, steps) {
+    this.sendMessage(MESSAGE_TYPES.SET_POLYRHYTHM, {
+      channel,
+      enabled,
+      steps
     });
   }
 

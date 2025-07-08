@@ -9,6 +9,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
     this.currentStep = 0;
     this.samplesSinceLastStep = 0;
     this.samplesPerStep = 0;
+    this.lastGlobalStepTime = 0;
 
     // Master phasor for all timing
     this.masterPhasor = 0; // 0-1 representing position in cycle
@@ -20,36 +21,51 @@ class SequencerProcessor extends AudioWorkletProcessor {
     this.previousGlobalStep = -1;
 
     // Pattern storage - 8 channels x 96 max steps
-    this.pattern = Array(8).fill(null).map(() => Array(96).fill(false));
+    this.pattern = Array(8)
+      .fill(null)
+      .map(() => Array(96).fill(false));
 
     // Channel configurations
-    this.channels = Array(8).fill(null).map(() => ({
-      mode: "trigger", // 'trigger' or 'cv'
-      cvMode: "lfo", // 'lfo' or '1voct' or 'sh'
-      useCustomSubdivisions: false, // Whether this channel uses custom subdivisions
-      subdivisions: 8, // Per-channel subdivisions (2-96)
-      lfo: {
-        waveform: "ramp",
-        rate: 1,
-        duty: 0.5,
-        width: 1.0,
-      },
-      pitches: Array(96).fill(null),
-      currentPitch: 0, // Current CV output for 1V/Oct mode
-      lfoPhase: 0, // Current phase for LFO
-      sh: {
-        mode: "rand", // 'rand' or 'shuf'
-        width: 1.0,
-        values: Array(96).fill(0),
-        currentValue: 0, // Current S&H output
-      },
-    }));
+    this.channels = Array(8)
+      .fill(null)
+      .map(() => ({
+        mode: "trigger", // 'trigger' or 'cv'
+        cvMode: "lfo", // 'lfo' or '1voct' or 'sh'
+        useCustomSubdivisions: false, // Whether this channel uses custom subdivisions
+        subdivisions: 8, // Per-channel subdivisions (2-96)
+        usePolyrhythm: false, // Whether this channel uses polyrhythm
+        polyrhythmSteps: 8, // Polyrhythm loop length (1-96)
+        polyrhythmSampleCount: 0, // Track samples instead of phasor for accuracy
+        polyrhythmCycleSamples: 0, // Cached cycle length in samples
+
+        // Logging
+        lastStepTime: 0,
+
+        lfo: {
+          waveform: "ramp",
+          rate: 1,
+          duty: 0.5,
+          width: 1.0,
+          phase: 0,
+        },
+        pitches: Array(96).fill(null),
+        currentPitch: 0, // Current CV output for 1V/Oct mode
+        lfoPhase: 0, // Current phase for LFO
+        sh: {
+          mode: "rand", // 'rand' or 'shuf'
+          width: 1.0,
+          values: Array(96).fill(0),
+          currentValue: 0, // Current S&H output
+        },
+      }));
 
     // Trigger states for each channel
-    this.triggerStates = Array(8).fill(null).map(() => ({
-      active: false,
-      sampleCount: 0,
-    }));
+    this.triggerStates = Array(8)
+      .fill(null)
+      .map(() => ({
+        active: false,
+        sampleCount: 0,
+      }));
 
     // Calculate initial timing
     this.updateTiming();
@@ -67,14 +83,24 @@ class SequencerProcessor extends AudioWorkletProcessor {
           // Reset step tracking
           this.previousSteps.fill(-1);
           this.previousGlobalStep = -1;
-          // Reset LFO phases
+          // Reset LFO phases and timing logs
+          this.lastGlobalStepTime = currentTime;
           for (let channel = 0; channel < 8; channel++) {
             this.channels[channel].lfoPhase = 0;
+            this.channels[channel].lastStepTime = currentTime;
+            this.channels[channel].polyrhythmSampleCount = 0;
           }
           break;
 
         case "stop":
           this.isPlaying = false;
+          // Reset all channel phasors
+          this.masterPhasor = 0;
+          this.currentCycleSample = 0;
+          for (let channel = 0; channel < 8; channel++) {
+            this.channels[channel].polyrhythmSampleCount = 0;
+            this.channels[channel].lfoPhase = 0;
+          }
           // Clear all active triggers
           this.triggerStates.forEach((state) => {
             state.active = false;
@@ -82,17 +108,26 @@ class SequencerProcessor extends AudioWorkletProcessor {
           });
           break;
 
+        case "pause":
+          this.isPlaying = false;
+          // Don't reset phasors - maintain position
+          break;
+
         case "updatePattern":
           if (
-            data.channel >= 0 && data.channel < 8 &&
-            data.step >= 0 && data.step < 96
+            data.channel >= 0 &&
+            data.channel < 8 &&
+            data.step >= 0 &&
+            data.step < 96
           ) {
             this.pattern[data.channel][data.step] = data.active;
           }
           break;
 
         case "clearPattern":
-          this.pattern = Array(8).fill(null).map(() => Array(96).fill(false));
+          this.pattern = Array(8)
+            .fill(null)
+            .map(() => Array(96).fill(false));
           // Also clear pitch data
           for (let channel = 0; channel < 8; channel++) {
             this.channels[channel].pitches = Array(96).fill(null);
@@ -102,6 +137,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
         case "setCycleTime":
           this.cycleTime = data;
           this.updateTiming();
+
           break;
 
         case "setSubdivisions": {
@@ -144,8 +180,10 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
         case "updatePitch":
           if (
-            data.channel >= 0 && data.channel < 8 &&
-            data.step >= 0 && data.step < 96
+            data.channel >= 0 &&
+            data.channel < 8 &&
+            data.step >= 0 &&
+            data.step < 96
           ) {
             this.channels[data.channel].pitches[data.step] = data.pitch;
           }
@@ -167,6 +205,17 @@ class SequencerProcessor extends AudioWorkletProcessor {
           if (data.channel >= 0 && data.channel < 8) {
             this.channels[data.channel].useCustomSubdivisions = true;
             this.channels[data.channel].subdivisions = data.subdivisions;
+            this.updateTiming(); // Recalculate timing
+          }
+          break;
+
+        case "setPolyrhythm":
+          if (data.channel >= 0 && data.channel < 8) {
+            this.channels[data.channel].usePolyrhythm = data.enabled;
+            if (data.steps !== undefined) {
+              this.channels[data.channel].polyrhythmSteps = data.steps;
+            }
+            this.updateTiming(); // Recalculate timing
           }
           break;
       }
@@ -174,12 +223,45 @@ class SequencerProcessor extends AudioWorkletProcessor {
   }
 
   updateTiming() {
-    // Calculate samples per step based on cycle time and subdivisions
-    this.samplesPerStep = Math.floor(
-      (this.cycleTime * sampleRate) / this.subdivisions,
-    );
-    // Calculate total samples in one cycle
-    this.totalCycleSamples = Math.floor(this.cycleTime * sampleRate);
+    // Calculate samples per step based on cycle time and global subdivisions
+    this.samplesPerStep = (this.cycleTime * sampleRate) / this.subdivisions;
+
+    // Calculate total samples in one cycle precisely
+    this.totalCycleSamples = this.samplesPerStep * this.subdivisions;
+
+    // Update polyrhythm cycle samples for each channel
+    for (let channel = 0; channel < 8; channel++) {
+      const channelConfig = this.channels[channel];
+      if (channelConfig.usePolyrhythm) {
+        // Polyrhythm cycle length is ALWAYS based on polyrhythm steps
+        // regardless of custom subdivisions
+        channelConfig.polyrhythmCycleSamples =
+          channelConfig.polyrhythmSteps * this.samplesPerStep;
+      }
+    }
+
+    // --- LOGGING ---
+    this.port.postMessage({
+      type: "log",
+      message: `[TIMING SET] Global Step: ${((this.samplesPerStep / sampleRate) * 1000).toFixed(2)}ms (${this.samplesPerStep} samples)`,
+    });
+    for (let i = 0; i < 8; i++) {
+      if (this.channels[i].usePolyrhythm) {
+        const effectiveSteps = this.channels[i].useCustomSubdivisions
+          ? this.channels[i].subdivisions
+          : this.channels[i].polyrhythmSteps;
+        const polyStepMs = (
+          (this.channels[i].polyrhythmCycleSamples /
+            effectiveSteps /
+            sampleRate) *
+          1000
+        ).toFixed(2);
+        this.port.postMessage({
+          type: "log",
+          message: `[TIMING SET] Chan ${i + 1} Polyrhythm Step: ${polyStepMs}ms | polyrhythmSteps: ${this.channels[i].polyrhythmSteps} | cycleSamples: ${this.channels[i].polyrhythmCycleSamples} | useCustomSub: ${this.channels[i].useCustomSubdivisions} | subdivisions: ${this.channels[i].subdivisions} | effectiveSteps: ${effectiveSteps}`,
+        });
+      }
+    }
   }
 
   process(_inputs, outputs, _parameters) {
@@ -193,11 +275,18 @@ class SequencerProcessor extends AudioWorkletProcessor {
         this.masterPhasor = this.currentCycleSample / this.totalCycleSamples;
 
         // Calculate global step from phasor
-        const globalStep = Math.floor(this.masterPhasor * this.subdivisions) %
-          this.subdivisions;
+        const globalStep =
+          Math.floor(this.masterPhasor * this.subdivisions) % this.subdivisions;
 
         // Check for global step change
         if (globalStep !== this.previousGlobalStep) {
+          const now = currentTime + sampleIndex / sampleRate;
+          const duration = (now - this.lastGlobalStepTime) * 1000;
+          this.port.postMessage({
+            type: "log",
+            message: `[STEP PLAYED] Global Step ${globalStep} took ${duration.toFixed(2)}ms`,
+          });
+          this.lastGlobalStepTime = now;
           this.previousGlobalStep = globalStep;
 
           // Send step change for UI indicator
@@ -205,27 +294,88 @@ class SequencerProcessor extends AudioWorkletProcessor {
             type: "stepChange",
             step: globalStep,
             channel: -1, // -1 indicates global
-            time: currentTime + (sampleIndex / sampleRate),
+            time: now,
             audioTime: currentTime,
           });
         }
 
-        // Process each channel using the master phasor
+        // Process each channel
         for (let channel = 0; channel < 8; channel++) {
           const channelConfig = this.channels[channel];
 
-          // Get channel-specific subdivisions
-          const channelSubdivisions = channelConfig.useCustomSubdivisions
-            ? channelConfig.subdivisions
-            : this.subdivisions;
+          // Determine effective pattern length for this channel
+          let patternLength;
+          if (
+            channelConfig.usePolyrhythm &&
+            channelConfig.useCustomSubdivisions
+          ) {
+            // When both polyrhythm and custom subdivisions are active,
+            // the polyrhythm cycle is divided into custom subdivisions
+            patternLength = channelConfig.subdivisions;
+          } else if (channelConfig.usePolyrhythm) {
+            // Polyrhythm without custom subdivisions uses polyrhythm steps as BOTH
+            // the pattern length AND the implicit subdivision count
+            patternLength = channelConfig.polyrhythmSteps;
+          } else if (channelConfig.useCustomSubdivisions) {
+            // Custom subdivisions without polyrhythm
+            patternLength = channelConfig.subdivisions;
+          } else {
+            // Standard behavior uses global subdivisions
+            patternLength = this.subdivisions;
+          }
 
-          // Calculate current step from master phasor
+          // Calculate position in pattern
+          let channelPhasor;
+
+          if (channelConfig.usePolyrhythm) {
+            // Use the pre-calculated polyrhythm cycle samples
+            const polyrhythmCycleSamples = channelConfig.polyrhythmCycleSamples;
+
+            // Increment independent sample counter
+            channelConfig.polyrhythmSampleCount++;
+
+            // Wrap around when reaching cycle length
+            if (channelConfig.polyrhythmSampleCount >= polyrhythmCycleSamples) {
+              channelConfig.polyrhythmSampleCount = 0;
+            }
+
+            // Calculate phasor from independent counter
+            channelPhasor =
+              channelConfig.polyrhythmSampleCount / polyrhythmCycleSamples;
+
+            // Debug log for specific samples to track step changes
+            if (
+              channelConfig.polyrhythmSampleCount % 4500 === 0 &&
+              channel === 1
+            ) {
+              const expectedStep = Math.floor(channelPhasor * patternLength);
+              this.port.postMessage({
+                type: "log",
+                message: `[DEBUG] Chan ${channel + 1} @ sample ${channelConfig.polyrhythmSampleCount}: phasor=${channelPhasor.toFixed(4)}, expectedStep=${expectedStep}, patternLength=${patternLength}, cycleSamples=${polyrhythmCycleSamples}`,
+              });
+            }
+          } else {
+            // Use master phasor
+            channelPhasor = this.masterPhasor;
+          }
+
+          // Calculate current step
           const currentStep =
-            Math.floor(this.masterPhasor * channelSubdivisions) %
-            channelSubdivisions;
+            Math.floor(channelPhasor * patternLength) % patternLength;
 
           // Check if step changed
           if (currentStep !== this.previousSteps[channel]) {
+            // --- LOGGING ---
+            if (channelConfig.usePolyrhythm) {
+              const now = currentTime + sampleIndex / sampleRate;
+              const duration = (now - channelConfig.lastStepTime) * 1000;
+              this.port.postMessage({
+                type: "log",
+                message: `[STEP PLAYED] Chan ${channel + 1} Polyrhythm Step ${currentStep} took ${duration.toFixed(2)}ms | phasor=${channelPhasor.toFixed(4)} | sampleCount=${channelConfig.polyrhythmSampleCount} | patternLength=${patternLength}`,
+              });
+              channelConfig.lastStepTime = now;
+            }
+
             this.previousSteps[channel] = currentStep;
 
             // Send per-channel step change for UI
@@ -233,12 +383,14 @@ class SequencerProcessor extends AudioWorkletProcessor {
               type: "stepChange",
               step: currentStep,
               channel: channel,
-              time: currentTime + (sampleIndex / sampleRate),
+              totalSteps: patternLength,
+              isPolyrhythm: channelConfig.usePolyrhythm,
+              time: currentTime + sampleIndex / sampleRate,
               audioTime: currentTime,
             });
 
             // Check if we've wrapped around to beginning of pattern
-            if (currentStep === 0 && this.masterPhasor < 0.5) {
+            if (currentStep === 0 && channelPhasor < 0.5) {
               // We're at the start of a new cycle
               // Regenerate S&H values for this channel if in rand mode
               if (
@@ -246,14 +398,14 @@ class SequencerProcessor extends AudioWorkletProcessor {
                 channelConfig.cvMode === "sh" &&
                 channelConfig.sh.mode === "rand"
               ) {
-                for (let i = 0; i < channelSubdivisions; i++) {
+                for (let i = 0; i < patternLength; i++) {
                   channelConfig.sh.values[i] = Math.random() * 2 - 1;
                 }
                 // Notify UI of new values
                 this.port.postMessage({
                   type: "shValuesUpdated",
                   channel: channel,
-                  values: channelConfig.sh.values.slice(0, channelSubdivisions),
+                  values: channelConfig.sh.values.slice(0, patternLength),
                 });
               }
             }
@@ -266,7 +418,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
                 this.triggerStates[channel].sampleCount = 0;
               }
             } else if (
-              channelConfig.mode === "cv" && channelConfig.cvMode === "1voct"
+              channelConfig.mode === "cv" &&
+              channelConfig.cvMode === "1voct"
             ) {
               // 1V/Oct mode - update pitch on step change
               const pitch = channelConfig.pitches[currentStep];
@@ -274,7 +427,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
                 channelConfig.currentPitch = pitch;
               }
             } else if (
-              channelConfig.mode === "cv" && channelConfig.cvMode === "sh"
+              channelConfig.mode === "cv" &&
+              channelConfig.cvMode === "sh"
             ) {
               // S&H mode - update value on step change
               channelConfig.sh.currentValue =
@@ -284,8 +438,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
         }
 
         // Increment cycle position
-        this.currentCycleSample = (this.currentCycleSample + 1) %
-          this.totalCycleSamples;
+        this.currentCycleSample =
+          (this.currentCycleSample + 1) % this.totalCycleSamples;
       }
 
       // Generate output for each channel
@@ -315,12 +469,14 @@ class SequencerProcessor extends AudioWorkletProcessor {
             let value = 0;
 
             if (this.isPlaying) {
-              // Calculate LFO phase directly from master phasor
+              // Calculate LFO phase from appropriate phasor
               // lfo.rate determines how many complete cycles per pattern
               // Add phase offset (0-1 mapped to 0-2π)
               const phaseOffset = (lfo.phase || 0) * 2 * Math.PI;
+              const basePhasor = channelPhasor; // Use the same phasor we calculated above
               channelConfig.lfoPhase =
-                (this.masterPhasor * lfo.rate * 2 * Math.PI + phaseOffset) % (2 * Math.PI);
+                (basePhasor * lfo.rate * 2 * Math.PI + phaseOffset) %
+                (2 * Math.PI);
 
               if (lfo.waveform === "sine") {
                 // Sine wave
@@ -348,8 +504,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
           } else if (channelConfig.cvMode === "sh") {
             // S&H mode - output random voltage scaled by width
             // Apply width scaling: as width approaches 0, value approaches 0
-            const scaledValue = channelConfig.sh.currentValue *
-              channelConfig.sh.width;
+            const scaledValue =
+              channelConfig.sh.currentValue * channelConfig.sh.width;
             channelData[sampleIndex] = scaledValue; // -1 to +1 range (±10V)
           }
         }
