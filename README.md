@@ -9,7 +9,7 @@ directly from your web browser.
 - **8-channel sequencer** with multiple modes per channel:
   - **Trigger mode**: Traditional gate/trigger sequencing
   - **LFO mode**: Continuous CV with ramp/sine waveforms
-  - **1V/Oct mode**: Pitch CV sequencing (-36 to +36 semitones)
+  - **1V/Oct mode**: Pitch CV sequencing (-120 to +120 semitones)
   - **S&H mode**: Sample & Hold random voltages with rand/shuf modes
 
 - **Flexible timing**:
@@ -73,7 +73,7 @@ directly from your web browser.
 
 #### 1V/Oct Mode
 
-- Enter pitch values (-36 to +36 semitones)
+- Enter pitch values (-120 to +120 semitones)
 - Empty cells maintain previous voltage
 - Follows 1V/octave standard
 

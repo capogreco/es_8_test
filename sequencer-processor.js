@@ -85,7 +85,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
         case "updatePattern":
           if (
             data.channel >= 0 && data.channel < 8 &&
-            data.step >= 0 && data.step < this.subdivisions
+            data.step >= 0 && data.step < 96
           ) {
             this.pattern[data.channel][data.step] = data.active;
           }
@@ -145,7 +145,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
         case "updatePitch":
           if (
             data.channel >= 0 && data.channel < 8 &&
-            data.step >= 0 && data.step < this.subdivisions
+            data.step >= 0 && data.step < 96
           ) {
             this.channels[data.channel].pitches[data.step] = data.pitch;
           }
@@ -317,8 +317,10 @@ class SequencerProcessor extends AudioWorkletProcessor {
             if (this.isPlaying) {
               // Calculate LFO phase directly from master phasor
               // lfo.rate determines how many complete cycles per pattern
+              // Add phase offset (0-1 mapped to 0-2π)
+              const phaseOffset = (lfo.phase || 0) * 2 * Math.PI;
               channelConfig.lfoPhase =
-                (this.masterPhasor * lfo.rate * 2 * Math.PI) % (2 * Math.PI);
+                (this.masterPhasor * lfo.rate * 2 * Math.PI + phaseOffset) % (2 * Math.PI);
 
               if (lfo.waveform === "sine") {
                 // Sine wave
@@ -340,7 +342,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
             channelData[sampleIndex] = value;
           } else if (channelConfig.cvMode === "1voct") {
             // 1V/Oct mode - output scaled pitch CV
-            // -36 to +36 semitones maps to -0.3 to +0.3 (-3V to +3V)
+            // -120 to +120 semitones maps to -1.0 to +1.0 (-10V to +10V)
             const voltage = channelConfig.currentPitch / 120.0; // 12 semitones per volt, /10 for audio range
             channelData[sampleIndex] = voltage;
           } else if (channelConfig.cvMode === "sh") {

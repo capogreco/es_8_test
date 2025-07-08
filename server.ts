@@ -49,6 +49,83 @@ const handler = async (req: Request): Promise<Response> => {
     }
   }
 
+  if (path === "/AudioWorkletService.js") {
+    try {
+      const js = await Deno.readTextFile("./AudioWorkletService.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/constants.js") {
+    try {
+      const js = await Deno.readTextFile("./constants.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/StateManager.js") {
+    try {
+      const js = await Deno.readTextFile("./StateManager.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/UISubscriptions.js") {
+    try {
+      const js = await Deno.readTextFile("./UISubscriptions.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/PatternMigration.js") {
+    try {
+      const js = await Deno.readTextFile("./PatternMigration.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/UIComponentFactory.js") {
+    try {
+      const js = await Deno.readTextFile("./UIComponentFactory.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
+  if (path === "/ChannelClasses.js") {
+    try {
+      const js = await Deno.readTextFile("./ChannelClasses.js");
+      return new Response(js, {
+        headers: { "content-type": "application/javascript" },
+      });
+    } catch {
+      return new Response("404 Not Found", { status: 404 });
+    }
+  }
+
   if (path === "/sequencer-processor.js") {
     try {
       const js = await Deno.readTextFile("./sequencer-processor.js");

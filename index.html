@@ -307,10 +307,7 @@
 
       .lfo-visualization {
         display: none;
-        height: 120px;
-        background: #2a2a2a;
-        border: 1px solid #333;
-        border-radius: 4px;
+        height: 100%;
         position: relative;
         overflow: hidden;
       }
@@ -382,7 +379,7 @@
 
       .sh-visualization {
         display: none;
-        height: 120px;
+        height: 100%;
       }
 
       .sh-visualization.visible {
@@ -432,6 +429,9 @@
       </div>
     </div>
 
-    <script src="sequencer.js"></script>
+    <script type="module">
+      import './AudioWorkletService.js';
+      import './sequencer.js';
+    </script>
   </body>
 </html>
