@@ -409,249 +409,189 @@ function createCVParams(channel) {
 }
 
 // Create subdivision info display
-function createSubdivisionInfo(channel) {
+// Create timing controls (polyrhythm and subdivisions)
+function createTimingControls(channel) {
   const container = document.createElement("div");
-  container.className = "subdivision-info";
-  container.style.position = "absolute";
-  container.style.bottom = "2px";
-  container.style.right = "2px";
-  container.style.fontSize = "9px";
-  container.style.color = "#666";
-  container.style.cursor = "pointer";
-  container.style.padding = "2px 4px";
-  container.style.background = "rgba(0, 0, 0, 0.5)";
-  container.style.borderRadius = "3px";
-  container.style.transition = "all 0.2s";
-  container.style.display = "flex";
-  container.style.gap = "2px";
-  container.style.alignItems = "center";
-
-  // Get current values
-  const polyrhythmSteps = sequencerState.channels[channel].usePolyrhythm
+  container.className = "timing-controls";
+  
+  // Polyrhythm control
+  const polyControl = document.createElement("div");
+  polyControl.className = "timing-control polyrhythm";
+  
+  const polyCheckbox = document.createElement("input");
+  polyCheckbox.type = "checkbox";
+  polyCheckbox.id = `poly-checkbox-${channel}`;
+  polyCheckbox.checked = sequencerState.channels[channel].usePolyrhythm;
+  
+  const polyLabel = document.createElement("label");
+  polyLabel.htmlFor = `poly-checkbox-${channel}`;
+  polyLabel.textContent = "P";
+  polyLabel.title = "Polyrhythm";
+  
+  const polyInput = document.createElement("input");
+  polyInput.type = "number";
+  polyInput.id = `poly-input-${channel}`;
+  polyInput.min = "1";
+  polyInput.max = sequencerState.subdivisions;
+  // When polyrhythm is disabled, show global subdivisions
+  polyInput.value = sequencerState.channels[channel].usePolyrhythm
     ? sequencerState.channels[channel].polyrhythmSteps
     : sequencerState.subdivisions;
-
-  const channelSubdivisions = sequencerState.channels[channel]
-    .useCustomSubdivisions
-    ? sequencerState.channels[channel].subdivisions
-    : sequencerState.subdivisions;
-
-  // Create polyrhythm number
-  const polySpan = document.createElement("span");
-  polySpan.textContent = polyrhythmSteps;
-  polySpan.style.cursor = "pointer";
-  if (sequencerState.channels[channel].usePolyrhythm) {
-    polySpan.style.color = "#ff8800";
+  polyInput.disabled = !sequencerState.channels[channel].usePolyrhythm;
+  
+  polyControl.appendChild(polyLabel);
+  polyControl.appendChild(polyInput);
+  polyControl.appendChild(polyCheckbox);
+  
+  // Subdivision control
+  const subdivControl = document.createElement("div");
+  subdivControl.className = "timing-control subdivision";
+  
+  const subdivCheckbox = document.createElement("input");
+  subdivCheckbox.type = "checkbox";
+  subdivCheckbox.id = `subdiv-checkbox-${channel}`;
+  subdivCheckbox.checked = sequencerState.channels[channel].useCustomSubdivisions;
+  
+  const subdivLabel = document.createElement("label");
+  subdivLabel.htmlFor = `subdiv-checkbox-${channel}`;
+  subdivLabel.textContent = "S";
+  subdivLabel.title = "Custom Subdivisions";
+  
+  const subdivInput = document.createElement("input");
+  subdivInput.type = "number";
+  subdivInput.id = `subdiv-input-${channel}`;
+  subdivInput.min = "2";
+  subdivInput.max = "96";
+  
+  // Determine subdivision value to display
+  let subdivValue;
+  if (!sequencerState.channels[channel].useCustomSubdivisions && 
+      sequencerState.channels[channel].usePolyrhythm) {
+    subdivValue = sequencerState.channels[channel].polyrhythmSteps;
+  } else {
+    subdivValue = sequencerState.channels[channel].subdivisions;
   }
-
-  // Create separator
-  const separator = document.createElement("span");
-  separator.textContent = "|";
-  separator.style.color = "#444";
-  separator.style.margin = "0 2px";
-
-  // Create subdivision number
-  const subdivSpan = document.createElement("span");
-  subdivSpan.textContent = channelSubdivisions;
-  subdivSpan.style.cursor = "pointer";
-  if (sequencerState.channels[channel].useCustomSubdivisions) {
-    subdivSpan.style.color = "#00ff88";
-  } else if (sequencerState.channels[channel].usePolyrhythm) {
-    // When polyrhythm is active but custom subdivisions are disabled,
-    // show the polyrhythm value as greyed out subdivisions
-    subdivSpan.style.color = "#666";
-  }
-
-  container.appendChild(polySpan);
-  container.appendChild(separator);
-  container.appendChild(subdivSpan);
-
-  // Click handler for polyrhythm number
-  polySpan.addEventListener("click", (e) => {
-    e.stopPropagation();
-
-    const isPolyrhythm = sequencerState.channels[channel].usePolyrhythm;
-
-    if (!isPolyrhythm) {
-      // Enable polyrhythm
-      stateManager.setChannelProperty(channel, "usePolyrhythm", true);
-
-      // If custom subdivisions are disabled, update the subdivision value to match polyrhythm
+  subdivInput.value = subdivValue;
+  subdivInput.disabled = !sequencerState.channels[channel].useCustomSubdivisions;
+  
+  subdivControl.appendChild(subdivLabel);
+  subdivControl.appendChild(subdivInput);
+  subdivControl.appendChild(subdivCheckbox);
+  
+  container.appendChild(polyControl);
+  container.appendChild(subdivControl);
+  
+  // Event handlers
+  polyCheckbox.addEventListener("change", (e) => {
+    const enabled = e.target.checked;
+    polyInput.disabled = !enabled;
+    
+    stateManager.setChannelProperty(channel, "usePolyrhythm", enabled);
+    
+    if (enabled) {
+      // When enabling, if the polyrhythmSteps doesn't match global, use the current value
+      // Otherwise keep the existing polyrhythmSteps
+      const currentPolySteps = sequencerState.channels[channel].polyrhythmSteps;
+      const globalSubdivisions = sequencerState.subdivisions;
+      const steps = currentPolySteps !== globalSubdivisions 
+        ? currentPolySteps 
+        : parseInt(polyInput.value);
+      stateManager.setChannelProperty(channel, "polyrhythmSteps", steps);
+      
+      // If custom subdivisions are disabled, update subdivision to match
       if (!sequencerState.channels[channel].useCustomSubdivisions) {
-        const polyrhythmSteps =
-          sequencerState.channels[channel].polyrhythmSteps;
-        stateManager.setChannelProperty(
-          channel,
-          "subdivisions",
-          polyrhythmSteps,
-        );
-        // Also send this update to the worklet
+        stateManager.setChannelProperty(channel, "subdivisions", steps);
+        subdivInput.value = steps;
         if (es8Node) {
-          workletService.setChannelSubdivisions(channel, polyrhythmSteps);
+          workletService.setChannelSubdivisions(channel, steps);
         }
       }
-
-      // Show input for editing
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = "1";
-      input.max = sequencerState.subdivisions;
-      input.value = sequencerState.channels[channel].polyrhythmSteps;
-      input.style.width = "30px";
-      input.style.background = "transparent";
-      input.style.textAlign = "center";
-      input.style.fontSize = "11px";
-      input.style.border = "1px solid #ff8800";
-      input.style.borderRadius = "2px";
-      input.style.color = "#ff8800";
-
-      polySpan.textContent = "";
-      polySpan.appendChild(input);
-      input.focus();
-      input.select();
-
-      const updateValue = () => {
-        let value = parseInt(input.value);
-        if (!isNaN(value)) {
-          value = Math.max(1, Math.min(sequencerState.subdivisions, value));
-          stateManager.setChannelProperty(channel, "polyrhythmSteps", value);
-
-          // If custom subdivisions are disabled, update the subdivision value to match
-          if (!sequencerState.channels[channel].useCustomSubdivisions) {
-            stateManager.setChannelProperty(channel, "subdivisions", value);
-          }
-
-          // Send to worklet
-          if (es8Node) {
-            workletService.setPolyrhythm(channel, true, value);
-          }
-        }
-        buildGrid();
-      };
-
-      input.addEventListener("blur", updateValue);
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          updateValue();
-        } else if (e.key === "Escape") {
-          stateManager.setChannelProperty(channel, "usePolyrhythm", false);
-          buildGrid();
-        }
-      });
+      
+      if (es8Node) {
+        workletService.setPolyrhythm(channel, true, steps);
+      }
     } else {
-      // Disable polyrhythm
-      stateManager.setChannelProperty(channel, "usePolyrhythm", false);
-
-      // If custom subdivisions are disabled, reset subdivisions to global value
+      // Reset subdivisions to global if custom is disabled
       if (!sequencerState.channels[channel].useCustomSubdivisions) {
         const globalSubdivisions = sequencerState.subdivisions;
-        stateManager.setChannelProperty(
-          channel,
-          "subdivisions",
-          globalSubdivisions,
-        );
-        // Also send this update to the worklet
+        stateManager.setChannelProperty(channel, "subdivisions", globalSubdivisions);
+        subdivInput.value = globalSubdivisions;
         if (es8Node) {
           workletService.setChannelSubdivisions(channel, globalSubdivisions);
         }
       }
-
-      // Send to worklet
+      
       if (es8Node) {
         workletService.setPolyrhythm(channel, false);
       }
+    }
+    
+    buildGrid();
+  });
+  
+  polyInput.addEventListener("change", (e) => {
+    let value = parseInt(e.target.value);
+    if (!isNaN(value)) {
+      value = Math.max(1, Math.min(sequencerState.subdivisions, value));
+      e.target.value = value;
+      
+      stateManager.setChannelProperty(channel, "polyrhythmSteps", value);
+      
+      // If custom subdivisions are disabled, update subdivision to match
+      if (!sequencerState.channels[channel].useCustomSubdivisions) {
+        stateManager.setChannelProperty(channel, "subdivisions", value);
+        subdivInput.value = value;
+        if (es8Node) {
+          workletService.setChannelSubdivisions(channel, value);
+        }
+      }
+      
+      if (es8Node) {
+        workletService.setPolyrhythm(channel, true, value);
+      }
+      
       buildGrid();
     }
   });
-
-  // Click handler for subdivision number
-  subdivSpan.addEventListener("click", (e) => {
-    e.stopPropagation();
-
-    const isCustom = sequencerState.channels[channel].useCustomSubdivisions;
-
-    if (!isCustom) {
-      // Enable custom subdivisions
-      stateManager.setChannelProperty(channel, "useCustomSubdivisions", true);
-
-      // Show input dialog or inline edit
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = "2";
-      input.max = "96";
-      input.value = sequencerState.channels[channel].subdivisions;
-      input.style.width = "25px";
-      input.style.padding = "1px";
-      input.style.fontSize = "9px";
-      input.style.background = "#1a1a1a";
-      input.style.border = "1px solid #00ff88";
-      input.style.borderRadius = "2px";
-      input.style.color = "#00ff88";
-
-      subdivSpan.textContent = "";
-      subdivSpan.appendChild(input);
-      input.focus();
-      input.select();
-
-      const updateValue = () => {
-        let value = parseInt(input.value);
-        if (!isNaN(value)) {
-          value = Math.max(
-            SEQUENCER_CONSTANTS.MIN_SUBDIVISIONS,
-            Math.min(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS, value),
-          );
-          updateChannelSubdivisions(channel, value);
-        }
-        buildGrid(); // Rebuild to show updated value
-      };
-
-      input.addEventListener("blur", updateValue);
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          updateValue();
-        } else if (e.key === "Escape") {
-          stateManager.setChannelProperty(
-            channel,
-            "useCustomSubdivisions",
-            false,
-          );
-          updateChannelSubdivisions(channel, sequencerState.subdivisions);
-          buildGrid();
-        }
-      });
-    } else {
-      // Disable custom subdivisions
-      stateManager.setChannelProperty(channel, "useCustomSubdivisions", false);
-      updateChannelSubdivisions(channel, sequencerState.subdivisions);
-      buildGrid();
+  
+  subdivCheckbox.addEventListener("change", (e) => {
+    const enabled = e.target.checked;
+    subdivInput.disabled = !enabled;
+    
+    stateManager.setChannelProperty(channel, "useCustomSubdivisions", enabled);
+    
+    if (!enabled) {
+      // Reset to polyrhythm value or global value
+      const targetSubdivisions = sequencerState.channels[channel].usePolyrhythm
+        ? sequencerState.channels[channel].polyrhythmSteps
+        : sequencerState.subdivisions;
+      
+      stateManager.setChannelProperty(channel, "subdivisions", targetSubdivisions);
+      subdivInput.value = targetSubdivisions;
+      
+      if (es8Node) {
+        workletService.setChannelSubdivisions(channel, targetSubdivisions);
+      }
+    }
+    
+    buildGrid();
+  });
+  
+  subdivInput.addEventListener("change", (e) => {
+    if (!subdivInput.disabled) {
+      let value = parseInt(e.target.value);
+      if (!isNaN(value)) {
+        value = Math.max(2, Math.min(96, value));
+        e.target.value = value;
+        
+        updateChannelSubdivisions(channel, value);
+      }
     }
   });
-
-  // Hover effect
-  container.addEventListener("mouseenter", () => {
-    container.style.color = sequencerState.channels[channel]
-      .useCustomSubdivisions
-      ? "#00ff88"
-      : "#888";
-    container.style.background = sequencerState.channels[channel]
-      .useCustomSubdivisions
-      ? "rgba(0, 255, 136, 0.2)"
-      : "rgba(255, 255, 255, 0.1)";
-  });
-
-  container.addEventListener("mouseleave", () => {
-    container.style.color = sequencerState.channels[channel]
-      .useCustomSubdivisions
-      ? "#00ff88"
-      : "#666";
-    container.style.background = sequencerState.channels[channel]
-      .useCustomSubdivisions
-      ? "rgba(0, 255, 136, 0.1)"
-      : "rgba(0, 0, 0, 0.5)";
-  });
-
+  
   return container;
 }
+
 
 // Set channel mode (trigger/lfo/1voct/sh)
 function setChannelMode(channel, mode) {
@@ -824,6 +764,7 @@ function updateSHVisualization(channel) {
   grid.style.display = "grid";
   grid.style.gap = "3px";
   grid.style.height = "100%";
+  grid.style.alignItems = "stretch"; // Ensure cells fill the height
 
   if (
     sequencerState.channels[channel].usePolyrhythm &&
@@ -869,6 +810,8 @@ function updateSHVisualization(channel) {
     cell.style.background = "#2a2a2a";
     cell.style.border = "1px solid #333";
     cell.style.borderRadius = "4px";
+    cell.style.height = "100%";
+    cell.style.minHeight = "30px";
     cell.style.position = "relative";
     cell.style.overflow = "hidden";
 
@@ -947,6 +890,11 @@ function updateSHVisualization(channel) {
   }
 
   viz.appendChild(grid);
+  
+  // Ensure container heights are correct after rendering
+  requestAnimationFrame(() => {
+    adjustPatternContainerHeights();
+  });
 }
 
 // Update LFO visualization
@@ -961,12 +909,8 @@ function updateLFOVisualization(channel) {
   const canvas = document.createElement("canvas");
   canvas.width = viz.offsetWidth || 400;
 
-  // Get height from the channel row
-  const channelRow = viz.closest(".channel-row");
-  const modeControls = channelRow
-    ? channelRow.querySelector(".mode-controls")
-    : null;
-  canvas.height = modeControls ? modeControls.offsetHeight : 40;
+  // Get height from the parent container or visualization element
+  canvas.height = viz.offsetHeight || 40;
 
   const ctx = canvas.getContext("2d");
 
@@ -1037,10 +981,14 @@ function buildGrid() {
   spacer.className = "step-indicator-spacer";
   indicatorRow.appendChild(spacer);
 
-  // Another spacer for mode controls
+  // Spacer for timing controls
   const spacer2 = document.createElement("div");
-  spacer2.style.width = "120px"; // Match the mode controls width
   indicatorRow.appendChild(spacer2);
+  
+  // Another spacer for mode controls
+  const spacer3 = document.createElement("div");
+  spacer3.style.width = "120px"; // Match the mode controls width
+  indicatorRow.appendChild(spacer3);
 
   // Step indicators
   const stepIndicators = document.createElement("div");
@@ -1068,20 +1016,19 @@ function buildGrid() {
       ? sequencerState.channels[channel].subdivisions
       : sequencerState.subdivisions;
 
-    // Channel label with subdivision info
+    // Channel label
     const labelContainer = document.createElement("div");
     labelContainer.className = "channel-label";
-    labelContainer.style.position = "relative";
 
     const label = document.createElement("div");
     label.textContent = channel + 1;
     labelContainer.appendChild(label);
 
-    // Add subdivision info
-    const subdivInfo = createSubdivisionInfo(channel);
-    labelContainer.appendChild(subdivInfo);
-
     row.appendChild(labelContainer);
+    
+    // Add timing controls
+    const timingControls = createTimingControls(channel);
+    row.appendChild(timingControls);
 
     // Mode controls container
     const modeControls = document.createElement("div");
@@ -1298,8 +1245,6 @@ function buildGrid() {
       sequencerState.channels[channel].cvMode === CV_MODES.LFO
     ) {
       lfoViz.classList.add("visible");
-      // Update visualization after DOM is ready
-      setTimeout(() => updateLFOVisualization(channel), 0);
     }
 
     // Pitch grid for CV 1V/Oct mode
@@ -1412,8 +1357,6 @@ function buildGrid() {
       shViz.classList.add("visible");
       // Initialize with random values
       generateSHValues(channel);
-      // Update visualization after DOM is ready
-      setTimeout(() => updateSHVisualization(channel), 0);
     }
 
     patternContainer.appendChild(stepGrid);
@@ -1425,6 +1368,23 @@ function buildGrid() {
 
     sequencerGrid.appendChild(row);
   }
+
+  // After all rows are added, set pattern container heights dynamically
+  // Use requestAnimationFrame to ensure DOM has rendered
+  requestAnimationFrame(() => {
+    adjustPatternContainerHeights();
+    
+    // Now update visualizations that need rendering
+    for (let index = 0; index < 8; index++) {
+      if (sequencerState.channels[index].mode === CHANNEL_MODES.CV) {
+        if (sequencerState.channels[index].cvMode === CV_MODES.LFO) {
+          updateLFOVisualization(index);
+        } else if (sequencerState.channels[index].cvMode === CV_MODES.SH) {
+          updateSHVisualization(index);
+        }
+      }
+    }
+  });
 }
 
 // Update channel subdivisions with pattern migration
@@ -1893,6 +1853,32 @@ initializeUISubscriptions();
 // Initialize grid on load
 buildGrid();
 
+// Helper function to adjust pattern container heights
+function adjustPatternContainerHeights() {
+  const rows = document.querySelectorAll('.channel-row');
+  rows.forEach((row, index) => {
+    const modeControls = row.querySelector('.mode-controls');
+    const patternContainer = row.lastElementChild;
+    
+    if (modeControls && patternContainer) {
+      const height = modeControls.offsetHeight;
+      patternContainer.style.height = `${height}px`;
+      
+      // Also update any visible visualizations
+      const lfoViz = row.querySelector(`#lfo-viz-${index}`);
+      const shViz = row.querySelector(`#sh-viz-${index}`);
+      const pitchGrid = row.querySelector(`#pitch-grid-${index}`);
+      const stepGrid = row.querySelector(`#step-grid-${index}`);
+      
+      [lfoViz, shViz, pitchGrid, stepGrid].forEach(elem => {
+        if (elem) {
+          elem.style.height = `${height}px`;
+        }
+      });
+    }
+  });
+}
+
 // Global mouse up to stop dragging
 document.addEventListener("mouseup", () => {
   isDragging = false;
@@ -1903,3 +1889,4 @@ document.addEventListener("mouseup", () => {
 window.updateLFOVisualization = updateLFOVisualization;
 window.generateSHValues = generateSHValues;
 window.updateSHVisualization = updateSHVisualization;
+window.adjustPatternContainerHeights = adjustPatternContainerHeights;

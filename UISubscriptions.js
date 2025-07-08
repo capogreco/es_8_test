@@ -45,7 +45,31 @@ export function initializeUISubscriptions() {
         updateSHVisualization(channel);
       }
     });
+    
+    // Polyrhythm changes
+    stateManager.subscribe(`channels.${channel}.polyrhythmSteps`, (steps) => {
+      updateSubdivisionDisplay(channel);
+    });
+    
+    // Polyrhythm enable/disable
+    stateManager.subscribe(`channels.${channel}.usePolyrhythm`, (enabled) => {
+      updateSubdivisionDisplay(channel);
+    });
   }
+  
+  // Subscribe to global subdivision changes
+  stateManager.subscribe('subdivisions', (newSubdivisions) => {
+    // Update all polyrhythm inputs that are disabled
+    for (let channel = 0; channel < SEQUENCER_CONSTANTS.MAX_CHANNELS; channel++) {
+      const polyInput = document.querySelector(`#poly-input-${channel}`);
+      const polyCheckbox = document.querySelector(`#poly-checkbox-${channel}`);
+      
+      if (polyInput && polyCheckbox && !polyCheckbox.checked) {
+        polyInput.value = newSubdivisions;
+        polyInput.max = newSubdivisions;
+      }
+    }
+  });
   
   // Global UI update functions
   window.updateChannelModeUI = updateChannelModeUI;
@@ -149,22 +173,46 @@ function updateChannelCVModeUI(channel, cvMode) {
       }
       break;
   }
+  
+  // Adjust container heights after mode change
+  if (window.adjustPatternContainerHeights) {
+    requestAnimationFrame(() => {
+      window.adjustPatternContainerHeights();
+    });
+  }
 }
 
 function updateSubdivisionUI(channel, useCustom) {
   // This will be called when custom subdivisions are toggled
-  // Update the subdivision badge display
-  const subdivInfo = document.querySelector(`#subdivInfo-${channel}`);
-  if (subdivInfo) {
-    const subdivisions = stateManager.getChannelProperty(channel, 'subdivisions');
-    subdivInfo.textContent = `${subdivisions}`;
-    
-    if (useCustom) {
-      subdivInfo.style.color = "#00ff88";
-      subdivInfo.style.background = "rgba(0, 255, 136, 0.1)";
-    } else {
-      subdivInfo.style.color = "#666";
-      subdivInfo.style.background = "rgba(0, 0, 0, 0.5)";
-    }
+  updateSubdivisionDisplay(channel);
+}
+
+function updateSubdivisionDisplay(channel) {
+  // Update the subdivision input value
+  const subdivInput = document.querySelector(`#subdiv-input-${channel}`);
+  if (!subdivInput) return;
+  
+  const useCustom = stateManager.getChannelProperty(channel, 'useCustomSubdivisions');
+  const usePolyrhythm = stateManager.getChannelProperty(channel, 'usePolyrhythm');
+  const polyrhythmSteps = stateManager.getChannelProperty(channel, 'polyrhythmSteps');
+  const globalSubdivisions = stateManager.get('subdivisions');
+  
+  // Determine what subdivision value to show
+  let subdivisions;
+  if (!useCustom && usePolyrhythm) {
+    // When custom subdivisions are disabled and polyrhythm is active,
+    // show the polyrhythm value
+    subdivisions = polyrhythmSteps;
+  } else {
+    subdivisions = stateManager.getChannelProperty(channel, 'subdivisions');
+  }
+  
+  subdivInput.value = subdivisions;
+  
+  // Also update polyrhythm input
+  const polyInput = document.querySelector(`#poly-input-${channel}`);
+  if (polyInput) {
+    // When polyrhythm is disabled, show global subdivisions
+    polyInput.value = usePolyrhythm ? polyrhythmSteps : globalSubdivisions;
   }
 }

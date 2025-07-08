@@ -4,6 +4,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
     // Sequencer state
     this.isPlaying = false;
+    this.isStopped = true; // Track if we're in stopped state
     this.subdivisions = 8;
     this.cycleTime = 2.0;
     this.currentStep = 0;
@@ -77,6 +78,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
       switch (type) {
         case "start":
           this.isPlaying = true;
+          this.isStopped = false;
           // Reset master phasor
           this.masterPhasor = 0;
           this.currentCycleSample = 0;
@@ -88,16 +90,19 @@ class SequencerProcessor extends AudioWorkletProcessor {
           for (let channel = 0; channel < 8; channel++) {
             this.channels[channel].lfoPhase = 0;
             this.channels[channel].lastStepTime = currentTime;
-            this.channels[channel].polyrhythmSampleCount = 0;
+            // Don't reset polyrhythm sample count - let it free run
+            // this.channels[channel].polyrhythmSampleCount = 0;
           }
           break;
 
         case "stop":
           this.isPlaying = false;
+          this.isStopped = true;
           // Reset all channel phasors
           this.masterPhasor = 0;
           this.currentCycleSample = 0;
           for (let channel = 0; channel < 8; channel++) {
+            // Reset polyrhythm counters on stop (full reset)
             this.channels[channel].polyrhythmSampleCount = 0;
             this.channels[channel].lfoPhase = 0;
           }
@@ -110,6 +115,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
         case "pause":
           this.isPlaying = false;
+          this.isStopped = false;
           // Don't reset phasors - maintain position
           break;
 
@@ -203,9 +209,9 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
         case "setChannelSubdivisions":
           if (data.channel >= 0 && data.channel < 8) {
-            this.channels[data.channel].useCustomSubdivisions = true;
             this.channels[data.channel].subdivisions = data.subdivisions;
-            this.updateTiming(); // Recalculate timing
+            // Note: useCustomSubdivisions flag is managed by the UI separately
+            // Don't set it here - just update the subdivision value
           }
           break;
 
@@ -214,6 +220,15 @@ class SequencerProcessor extends AudioWorkletProcessor {
             this.channels[data.channel].usePolyrhythm = data.enabled;
             if (data.steps !== undefined) {
               this.channels[data.channel].polyrhythmSteps = data.steps;
+
+              // CRITICAL: When polyrhythm is enabled and custom subdivisions are disabled,
+              // the subdivisions MUST equal polyrhythmSteps
+              if (
+                data.enabled &&
+                !this.channels[data.channel].useCustomSubdivisions
+              ) {
+                this.channels[data.channel].subdivisions = data.steps;
+              }
             }
             this.updateTiming(); // Recalculate timing
           }
@@ -256,9 +271,15 @@ class SequencerProcessor extends AudioWorkletProcessor {
             sampleRate) *
           1000
         ).toFixed(2);
+
+        // Check invariant
+        const invariantOk =
+          this.channels[i].useCustomSubdivisions ||
+          this.channels[i].subdivisions === this.channels[i].polyrhythmSteps;
+
         this.port.postMessage({
           type: "log",
-          message: `[TIMING SET] Chan ${i + 1} Polyrhythm Step: ${polyStepMs}ms | polyrhythmSteps: ${this.channels[i].polyrhythmSteps} | cycleSamples: ${this.channels[i].polyrhythmCycleSamples} | useCustomSub: ${this.channels[i].useCustomSubdivisions} | subdivisions: ${this.channels[i].subdivisions} | effectiveSteps: ${effectiveSteps}`,
+          message: `[TIMING SET] Chan ${i + 1} Polyrhythm Step: ${polyStepMs}ms | polyrhythmSteps: ${this.channels[i].polyrhythmSteps} | cycleSamples: ${this.channels[i].polyrhythmCycleSamples} | useCustomSub: ${this.channels[i].useCustomSubdivisions} | subdivisions: ${this.channels[i].subdivisions} | effectiveSteps: ${effectiveSteps} | invariantOk: ${invariantOk}`,
         });
       }
     }
@@ -269,6 +290,22 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
     // Process each sample in the block
     for (let sampleIndex = 0; sampleIndex < 128; sampleIndex++) {
+      // Update polyrhythm counters for free-running behavior (but not when stopped)
+      if (!this.isStopped) {
+        for (let channel = 0; channel < 8; channel++) {
+          const channelConfig = this.channels[channel];
+          if (channelConfig.usePolyrhythm) {
+            // Increment independent sample counter
+            channelConfig.polyrhythmSampleCount++;
+            
+            // Wrap around when reaching cycle length
+            if (channelConfig.polyrhythmSampleCount >= channelConfig.polyrhythmCycleSamples) {
+              channelConfig.polyrhythmSampleCount = 0;
+            }
+          }
+        }
+      }
+
       // Handle sequencer timing
       if (this.isPlaying) {
         // Update master phasor
@@ -331,15 +368,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
             // Use the pre-calculated polyrhythm cycle samples
             const polyrhythmCycleSamples = channelConfig.polyrhythmCycleSamples;
 
-            // Increment independent sample counter
-            channelConfig.polyrhythmSampleCount++;
-
-            // Wrap around when reaching cycle length
-            if (channelConfig.polyrhythmSampleCount >= polyrhythmCycleSamples) {
-              channelConfig.polyrhythmSampleCount = 0;
-            }
-
-            // Calculate phasor from independent counter
+            // Calculate phasor from independent counter (already incremented above)
             channelPhasor =
               channelConfig.polyrhythmSampleCount / polyrhythmCycleSamples;
 
