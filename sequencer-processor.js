@@ -73,6 +73,10 @@ class SequencerProcessor extends AudioWorkletProcessor {
       .map(() => ({
         active: false,
         sampleCount: 0,
+        // Envelope phases (for future envelope implementation)
+        phase: "idle", // 'idle', 'attack', 'decay', 'sustain', 'release'
+        phaseStartTime: 0,
+        velocity: 1.0, // For velocity-sensitive envelopes
       }));
 
     // Calculate initial timing
@@ -117,6 +121,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
           this.triggerStates.forEach((state) => {
             state.active = false;
             state.sampleCount = 0;
+            state.phase = "idle";
+            state.phaseStartTime = 0;
           });
           break;
 
@@ -271,19 +277,194 @@ class SequencerProcessor extends AudioWorkletProcessor {
     return DEFAULT_TRIGGER_DURATION_SAMPLES;
   }
 
+  // Calculate envelope value (stub for future implementation)
+  calculateEnvelopeValue(triggerState) {
+    // For now, return constant 1.0 (full gate)
+    // This will be replaced with actual envelope calculation
+    // based on triggerState.phase (attack, decay, sustain, release)
+    return 1.0;
+  }
+
   // Generate trigger output for a channel
   generateTriggerOutput(channel, triggerState) {
     const triggerDuration = this.getTriggerDuration(channel);
 
     if (triggerState.active && triggerState.sampleCount < triggerDuration) {
       triggerState.sampleCount++;
-      return 1.0; // +10V
+      // For now, return constant gate value - will be replaced with envelope
+      return 1.0 * this.calculateEnvelopeValue(triggerState); // +10V * envelope
     } else {
       if (triggerState.sampleCount >= triggerDuration) {
         triggerState.active = false;
         triggerState.sampleCount = 0;
+        triggerState.phase = "idle";
       }
       return 0; // 0V
+    }
+  }
+
+  // Update timing state for the sequencer
+  updateTimingState() {
+    if (!this.isPlaying) return -1; // Return -1 if not playing
+
+    // Update master phasor
+    this.masterPhasor = this.currentCycleSample / this.totalCycleSamples;
+
+    // Calculate global step from phasor
+    // Since masterPhasor is 0-1, the modulo is unnecessary
+    const globalStep = Math.floor(this.masterPhasor * this.subdivisions);
+
+    // Increment cycle position
+    this.currentCycleSample = (this.currentCycleSample + 1) %
+      this.totalCycleSamples;
+
+    return globalStep;
+  }
+
+  // Generate CV output for a channel
+  generateCVOutput(channelConfig) {
+    if (channelConfig.cvMode === "lfo") {
+      // LFO mode
+      const lfo = channelConfig.lfo;
+      let value = 0;
+
+      if (this.isPlaying) {
+        // Calculate LFO phase from appropriate phasor
+        // lfo.rate determines how many complete cycles per pattern
+        // Add phase offset (0-1 mapped to 0-2π)
+        const phaseOffset = (lfo.phase || 0) * 2 * Math.PI;
+        // Get the phasor for this channel
+        const basePhasor = this.getChannelPhasor(channelConfig);
+        channelConfig.lfoPhase =
+          (basePhasor * lfo.rate * 2 * Math.PI + phaseOffset) %
+          (2 * Math.PI);
+
+        if (lfo.waveform === "sine") {
+          // Sine wave
+          value = Math.sin(channelConfig.lfoPhase) * lfo.width;
+        } else {
+          // Ramp with duty cycle
+          const normalizedPhase = channelConfig.lfoPhase / (2 * Math.PI);
+          if (normalizedPhase < lfo.duty) {
+            // Rising phase
+            value = (normalizedPhase / lfo.duty) * 2 - 1;
+          } else {
+            // Falling phase
+            value = ((1 - normalizedPhase) / (1 - lfo.duty)) * 2 - 1;
+          }
+          value *= lfo.width;
+        }
+      }
+
+      return value;
+    } else if (channelConfig.cvMode === "1voct") {
+      // 1V/Oct mode - output scaled pitch CV
+      // -120 to +120 semitones maps to -1.0 to +1.0 (-10V to +10V)
+      const voltage = channelConfig.currentPitch / 120.0; // 12 semitones per volt, /10 for audio range
+      return voltage;
+    } else if (channelConfig.cvMode === "sh") {
+      // S&H mode - output random voltage scaled by width
+      // Apply width scaling: as width approaches 0, value approaches 0
+      const scaledValue = channelConfig.sh.currentValue *
+        channelConfig.sh.width;
+      return scaledValue; // -1 to +1 range (±10V)
+    }
+
+    return 0; // Default
+  }
+
+  // Process a channel's step changes
+  processChannelStep(
+    channel,
+    channelConfig,
+    currentStep,
+    channelPhasor,
+    patternLength,
+    currentTime,
+    sampleIndex,
+    sampleRate,
+  ) {
+    // Check if step changed
+    if (currentStep === this.previousSteps[channel]) {
+      return; // No step change
+    }
+
+    // --- LOGGING ---
+    if (this.debugMode && channelConfig.usePolyrhythm) {
+      const now = currentTime + sampleIndex / sampleRate;
+      const duration = (now - channelConfig.lastStepTime) * 1000;
+      this.port.postMessage({
+        type: "log",
+        message: `[STEP PLAYED] Chan ${
+          channel + 1
+        } Polyrhythm Step ${currentStep} took ${
+          duration.toFixed(2)
+        }ms | phasor=${
+          channelPhasor.toFixed(4)
+        } | sampleCount=${channelConfig.polyrhythmSampleCount} | patternLength=${patternLength}`,
+      });
+      channelConfig.lastStepTime = now;
+    }
+
+    this.previousSteps[channel] = currentStep;
+
+    // Send per-channel step change for UI
+    this.port.postMessage({
+      type: "stepChange",
+      step: currentStep,
+      channel: channel,
+      totalSteps: patternLength,
+      isPolyrhythm: channelConfig.usePolyrhythm,
+      time: currentTime + sampleIndex / sampleRate,
+      audioTime: currentTime,
+    });
+
+    // Check if we've wrapped around to beginning of pattern
+    if (currentStep === 0 && channelPhasor < 0.5) {
+      // We're at the start of a new cycle
+      // Regenerate S&H values for this channel if in rand mode
+      if (
+        channelConfig.mode === "cv" &&
+        channelConfig.cvMode === "sh" &&
+        channelConfig.sh.mode === "rand"
+      ) {
+        for (let i = 0; i < patternLength; i++) {
+          channelConfig.sh.values[i] = Math.random() * 2 - 1;
+        }
+        // Notify UI of new values
+        this.port.postMessage({
+          type: "shValuesUpdated",
+          channel: channel,
+          values: channelConfig.sh.values.slice(0, patternLength),
+        });
+      }
+    }
+
+    // Process channel based on its mode
+    if (channelConfig.mode === "trigger") {
+      // Trigger mode - check pattern
+      if (this.pattern[channel][currentStep]) {
+        this.triggerStates[channel].active = true;
+        this.triggerStates[channel].sampleCount = 0;
+        this.triggerStates[channel].phase = "attack"; // Start envelope
+        this.triggerStates[channel].phaseStartTime = currentTime +
+          sampleIndex / sampleRate;
+      }
+    } else if (
+      channelConfig.mode === "cv" &&
+      channelConfig.cvMode === "1voct"
+    ) {
+      // 1V/Oct mode - update pitch on step change
+      const pitch = channelConfig.pitches[currentStep];
+      if (pitch !== null) {
+        channelConfig.currentPitch = pitch;
+      }
+    } else if (
+      channelConfig.mode === "cv" &&
+      channelConfig.cvMode === "sh"
+    ) {
+      // S&H mode - update value on step change
+      channelConfig.sh.currentValue = channelConfig.sh.values[currentStep];
     }
   }
 
@@ -376,14 +557,9 @@ class SequencerProcessor extends AudioWorkletProcessor {
       }
 
       // Handle sequencer timing
+      const globalStep = this.updateTimingState();
+
       if (this.isPlaying) {
-        // Update master phasor
-        this.masterPhasor = this.currentCycleSample / this.totalCycleSamples;
-
-        // Calculate global step from phasor
-        // Since masterPhasor is 0-1, the modulo is unnecessary
-        const globalStep = Math.floor(this.masterPhasor * this.subdivisions);
-
         // Check for global step change
         if (globalStep !== this.previousGlobalStep) {
           const now = currentTime + sampleIndex / sampleRate;
@@ -441,89 +617,18 @@ class SequencerProcessor extends AudioWorkletProcessor {
           // Since channelPhasor is 0-1, the modulo is unnecessary
           const currentStep = Math.floor(channelPhasor * patternLength);
 
-          // Check if step changed
-          if (currentStep !== this.previousSteps[channel]) {
-            // --- LOGGING ---
-            if (this.debugMode && channelConfig.usePolyrhythm) {
-              const now = currentTime + sampleIndex / sampleRate;
-              const duration = (now - channelConfig.lastStepTime) * 1000;
-              this.port.postMessage({
-                type: "log",
-                message: `[STEP PLAYED] Chan ${
-                  channel + 1
-                } Polyrhythm Step ${currentStep} took ${
-                  duration.toFixed(2)
-                }ms | phasor=${
-                  channelPhasor.toFixed(4)
-                } | sampleCount=${channelConfig.polyrhythmSampleCount} | patternLength=${patternLength}`,
-              });
-              channelConfig.lastStepTime = now;
-            }
-
-            this.previousSteps[channel] = currentStep;
-
-            // Send per-channel step change for UI
-            this.port.postMessage({
-              type: "stepChange",
-              step: currentStep,
-              channel: channel,
-              totalSteps: patternLength,
-              isPolyrhythm: channelConfig.usePolyrhythm,
-              time: currentTime + sampleIndex / sampleRate,
-              audioTime: currentTime,
-            });
-
-            // Check if we've wrapped around to beginning of pattern
-            if (currentStep === 0 && channelPhasor < 0.5) {
-              // We're at the start of a new cycle
-              // Regenerate S&H values for this channel if in rand mode
-              if (
-                channelConfig.mode === "cv" &&
-                channelConfig.cvMode === "sh" &&
-                channelConfig.sh.mode === "rand"
-              ) {
-                for (let i = 0; i < patternLength; i++) {
-                  channelConfig.sh.values[i] = Math.random() * 2 - 1;
-                }
-                // Notify UI of new values
-                this.port.postMessage({
-                  type: "shValuesUpdated",
-                  channel: channel,
-                  values: channelConfig.sh.values.slice(0, patternLength),
-                });
-              }
-            }
-
-            // Process channel based on its mode
-            if (channelConfig.mode === "trigger") {
-              // Trigger mode - check pattern
-              if (this.pattern[channel][currentStep]) {
-                this.triggerStates[channel].active = true;
-                this.triggerStates[channel].sampleCount = 0;
-              }
-            } else if (
-              channelConfig.mode === "cv" &&
-              channelConfig.cvMode === "1voct"
-            ) {
-              // 1V/Oct mode - update pitch on step change
-              const pitch = channelConfig.pitches[currentStep];
-              if (pitch !== null) {
-                channelConfig.currentPitch = pitch;
-              }
-            } else if (
-              channelConfig.mode === "cv" &&
-              channelConfig.cvMode === "sh"
-            ) {
-              // S&H mode - update value on step change
-              channelConfig.sh.currentValue =
-                channelConfig.sh.values[currentStep];
-            }
-          }
+          // Process step changes
+          this.processChannelStep(
+            channel,
+            channelConfig,
+            currentStep,
+            channelPhasor,
+            patternLength,
+            currentTime,
+            sampleIndex,
+            sampleRate,
+          );
         }
-
-        // Increment cycle position
-        this.currentCycleSample = (this.currentCycleSample + 1) %
-          this.totalCycleSamples;
       }
 
       // Generate output for each channel
@@ -545,52 +650,8 @@ class SequencerProcessor extends AudioWorkletProcessor {
             triggerState,
           );
         } else if (channelConfig.mode === "cv") {
-          if (channelConfig.cvMode === "lfo") {
-            // LFO mode
-            const lfo = channelConfig.lfo;
-            let value = 0;
-
-            if (this.isPlaying) {
-              // Calculate LFO phase from appropriate phasor
-              // lfo.rate determines how many complete cycles per pattern
-              // Add phase offset (0-1 mapped to 0-2π)
-              const phaseOffset = (lfo.phase || 0) * 2 * Math.PI;
-              // Get the phasor for this channel
-              const basePhasor = this.getChannelPhasor(channelConfig);
-              channelConfig.lfoPhase =
-                (basePhasor * lfo.rate * 2 * Math.PI + phaseOffset) %
-                (2 * Math.PI);
-
-              if (lfo.waveform === "sine") {
-                // Sine wave
-                value = Math.sin(channelConfig.lfoPhase) * lfo.width;
-              } else {
-                // Ramp with duty cycle
-                const normalizedPhase = channelConfig.lfoPhase / (2 * Math.PI);
-                if (normalizedPhase < lfo.duty) {
-                  // Rising phase
-                  value = (normalizedPhase / lfo.duty) * 2 - 1;
-                } else {
-                  // Falling phase
-                  value = ((1 - normalizedPhase) / (1 - lfo.duty)) * 2 - 1;
-                }
-                value *= lfo.width;
-              }
-            }
-
-            channelData[sampleIndex] = value;
-          } else if (channelConfig.cvMode === "1voct") {
-            // 1V/Oct mode - output scaled pitch CV
-            // -120 to +120 semitones maps to -1.0 to +1.0 (-10V to +10V)
-            const voltage = channelConfig.currentPitch / 120.0; // 12 semitones per volt, /10 for audio range
-            channelData[sampleIndex] = voltage;
-          } else if (channelConfig.cvMode === "sh") {
-            // S&H mode - output random voltage scaled by width
-            // Apply width scaling: as width approaches 0, value approaches 0
-            const scaledValue = channelConfig.sh.currentValue *
-              channelConfig.sh.width;
-            channelData[sampleIndex] = scaledValue; // -1 to +1 range (±10V)
-          }
+          // Generate CV output
+          channelData[sampleIndex] = this.generateCVOutput(channelConfig);
         }
       }
     }
