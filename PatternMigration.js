@@ -1,4 +1,4 @@
-import { SEQUENCER_CONSTANTS } from './constants.js';
+import { SEQUENCER_CONSTANTS } from "./constants.js";
 
 /**
  * Pattern Migration Module
@@ -35,35 +35,35 @@ export function phaseToStep(phase, newSubdivisions) {
  */
 export function migratePattern(oldPattern, oldSubdivisions, newSubdivisions) {
   const newPattern = Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(false);
-  
+
   // Special case: no change
   if (oldSubdivisions === newSubdivisions) {
     return [...oldPattern];
   }
-  
+
   // Special case: empty pattern
-  if (!oldPattern.some(v => v)) {
+  if (!oldPattern.some((v) => v)) {
     return newPattern;
   }
-  
+
   // Phase-based migration
   for (let oldStep = 0; oldStep < oldSubdivisions; oldStep++) {
     if (oldPattern[oldStep]) {
       const phase = calculatePhase(oldStep, oldSubdivisions);
       let newStep = phaseToStep(phase, newSubdivisions);
-      
+
       // Ensure we don't exceed bounds
       if (newStep >= newSubdivisions) {
         newStep = newSubdivisions - 1;
       }
-      
+
       // Handle collisions - if target is already occupied, find nearest free slot
       if (newPattern[newStep]) {
         // Look for nearest free slot
         for (let offset = 1; offset < newSubdivisions; offset++) {
           const before = newStep - offset;
           const after = newStep + offset;
-          
+
           if (before >= 0 && !newPattern[before]) {
             newStep = before;
             break;
@@ -74,11 +74,11 @@ export function migratePattern(oldPattern, oldSubdivisions, newSubdivisions) {
           }
         }
       }
-      
+
       newPattern[newStep] = true;
     }
   }
-  
+
   return newPattern;
 }
 
@@ -91,33 +91,33 @@ export function migratePattern(oldPattern, oldSubdivisions, newSubdivisions) {
  */
 export function migratePitches(oldPitches, oldSubdivisions, newSubdivisions) {
   const newPitches = Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(null);
-  
+
   // Special case: no change
   if (oldSubdivisions === newSubdivisions) {
     return [...oldPitches];
   }
-  
+
   // Special case: no pitches
-  if (!oldPitches.some(p => p !== null)) {
+  if (!oldPitches.some((p) => p !== null)) {
     return newPitches;
   }
-  
+
   // Phase-based migration
   for (let oldStep = 0; oldStep < oldSubdivisions; oldStep++) {
     if (oldPitches[oldStep] !== null) {
       const phase = calculatePhase(oldStep, oldSubdivisions);
       let newStep = phaseToStep(phase, newSubdivisions);
-      
+
       // Ensure we don't exceed bounds
       if (newStep >= newSubdivisions) {
         newStep = newSubdivisions - 1;
       }
-      
+
       // For pitches, we can overwrite (last one wins)
       newPitches[newStep] = oldPitches[oldStep];
     }
   }
-  
+
   return newPitches;
 }
 
@@ -130,19 +130,19 @@ export function migratePitches(oldPitches, oldSubdivisions, newSubdivisions) {
  */
 export function migrateSHValues(oldValues, oldSubdivisions, newSubdivisions) {
   const newValues = Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(0);
-  
+
   // Special case: no change
   if (oldSubdivisions === newSubdivisions) {
     return [...oldValues];
   }
-  
+
   // For S&H, we interpolate/resample the values
   for (let newStep = 0; newStep < newSubdivisions; newStep++) {
     const phase = calculatePhase(newStep, newSubdivisions);
     const oldPosition = phase * oldSubdivisions;
     const oldStep = Math.floor(oldPosition);
     const fraction = oldPosition - oldStep;
-    
+
     if (oldStep >= oldSubdivisions - 1) {
       // Last step
       newValues[newStep] = oldValues[oldSubdivisions - 1] || 0;
@@ -153,7 +153,7 @@ export function migrateSHValues(oldValues, oldSubdivisions, newSubdivisions) {
       newValues[newStep] = value1 + (value2 - value1) * fraction;
     }
   }
-  
+
   return newValues;
 }
 
@@ -161,9 +161,9 @@ export function migrateSHValues(oldValues, oldSubdivisions, newSubdivisions) {
  * Migration strategy configuration
  */
 export const MIGRATION_STRATEGIES = {
-  PATTERN: 'pattern',
-  PITCH: 'pitch',
-  SH_VALUES: 'sh_values'
+  PATTERN: "pattern",
+  PITCH: "pitch",
+  SH_VALUES: "sh_values",
 };
 
 /**
@@ -193,11 +193,11 @@ export function getMigrationFunction(strategy) {
  */
 export function batchMigrate(migrations, oldSubdivisions, newSubdivisions) {
   const results = {};
-  
+
   for (const [key, { data, strategy }] of Object.entries(migrations)) {
     const migrationFn = getMigrationFunction(strategy);
     results[key] = migrationFn(data, oldSubdivisions, newSubdivisions);
   }
-  
+
   return results;
 }

@@ -116,8 +116,7 @@ class WorkletMessageHandler {
         }
         // Update polyrhythm cycle samples
         if (enabled) {
-          const cycleRatio =
-            this.processor.channels[channel].polyrhythmSteps /
+          const cycleRatio = this.processor.channels[channel].polyrhythmSteps /
             this.processor.subdivisions;
           this.processor.channels[channel].polyrhythmCycleSamples = Math.floor(
             this.processor.totalCycleSamples * cycleRatio,
@@ -365,7 +364,7 @@ class WorkletMessageHandler {
       this.sendMessage("log", {
         message: args
           .map((arg) =>
-            typeof arg === "object" ? JSON.stringify(arg) : String(arg),
+            typeof arg === "object" ? JSON.stringify(arg) : String(arg)
           )
           .join(" "),
       });
@@ -380,7 +379,7 @@ class WorkletMessageHandler {
     this.sendMessage("error", {
       message: args
         .map((arg) =>
-          typeof arg === "object" ? JSON.stringify(arg) : String(arg),
+          typeof arg === "object" ? JSON.stringify(arg) : String(arg)
         )
         .join(" "),
     });

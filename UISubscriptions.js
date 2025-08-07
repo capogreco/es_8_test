@@ -1,76 +1,81 @@
-import { stateManager } from './StateManager.js';
-import { CHANNEL_MODES, CV_MODES, SEQUENCER_CONSTANTS } from './constants.js';
+import { stateManager } from "./StateManager.js";
+import { CHANNEL_MODES, CV_MODES, SEQUENCER_CONSTANTS } from "./constants.js";
 
 /**
  * Set up all state subscriptions for UI updates
  * This centralizes the relationship between state changes and UI updates
  */
 export function initializeUISubscriptions() {
-  
   // Subscribe to channel mode changes for each channel
   for (let channel = 0; channel < SEQUENCER_CONSTANTS.MAX_CHANNELS; channel++) {
-    
     // Channel mode changes
     stateManager.subscribe(`channels.${channel}.mode`, (mode) => {
       updateChannelModeUI(channel, mode);
     });
-    
+
     // CV mode changes
     stateManager.subscribe(`channels.${channel}.cvMode`, (cvMode) => {
-      const mode = stateManager.getChannelProperty(channel, 'mode');
+      const mode = stateManager.getChannelProperty(channel, "mode");
       if (mode === CHANNEL_MODES.CV) {
         updateChannelCVModeUI(channel, cvMode);
       }
     });
-    
+
     // Custom subdivisions changes
-    stateManager.subscribe(`channels.${channel}.useCustomSubdivisions`, (useCustom) => {
-      updateSubdivisionUI(channel, useCustom);
-    });
-    
+    stateManager.subscribe(
+      `channels.${channel}.useCustomSubdivisions`,
+      (useCustom) => {
+        updateSubdivisionUI(channel, useCustom);
+      },
+    );
+
     // LFO parameter changes
     stateManager.subscribe(`channels.${channel}.lfo`, (lfo) => {
-      const mode = stateManager.getChannelProperty(channel, 'mode');
-      const cvMode = stateManager.getChannelProperty(channel, 'cvMode');
+      const mode = stateManager.getChannelProperty(channel, "mode");
+      const cvMode = stateManager.getChannelProperty(channel, "cvMode");
       if (mode === CHANNEL_MODES.CV && cvMode === CV_MODES.LFO) {
         updateLFOVisualization(channel);
       }
     });
-    
+
     // S&H parameter changes
     stateManager.subscribe(`channels.${channel}.sh`, (sh) => {
-      const mode = stateManager.getChannelProperty(channel, 'mode');
-      const cvMode = stateManager.getChannelProperty(channel, 'cvMode');
+      const mode = stateManager.getChannelProperty(channel, "mode");
+      const cvMode = stateManager.getChannelProperty(channel, "cvMode");
       if (mode === CHANNEL_MODES.CV && cvMode === CV_MODES.SH) {
         updateSHVisualization(channel);
       }
     });
-    
+
     // Polyrhythm changes
     stateManager.subscribe(`channels.${channel}.polyrhythmSteps`, (steps) => {
       updateSubdivisionDisplay(channel);
     });
-    
+
     // Polyrhythm enable/disable
     stateManager.subscribe(`channels.${channel}.usePolyrhythm`, (enabled) => {
       updateSubdivisionDisplay(channel);
     });
   }
-  
+
   // Subscribe to global subdivision changes
-  stateManager.subscribe('subdivisions', (newSubdivisions) => {
+  stateManager.subscribe("subdivisions", (newSubdivisions) => {
     // Update all polyrhythm inputs that are disabled
-    for (let channel = 0; channel < SEQUENCER_CONSTANTS.MAX_CHANNELS; channel++) {
+    for (
+      let channel = 0;
+      channel < SEQUENCER_CONSTANTS.MAX_CHANNELS;
+      channel++
+    ) {
       const polyInput = document.querySelector(`#poly-input-${channel}`);
       const polyCheckbox = document.querySelector(`#poly-checkbox-${channel}`);
-      
+
       if (polyInput && polyCheckbox && !polyCheckbox.checked) {
         polyInput.value = newSubdivisions;
         polyInput.max = newSubdivisions;
       }
     }
   });
-  
+
   // Global UI update functions
   window.updateChannelModeUI = updateChannelModeUI;
   window.updateChannelCVModeUI = updateChannelCVModeUI;
@@ -81,7 +86,7 @@ function updateChannelModeUI(channel, mode) {
   const rows = document.querySelectorAll(".channel-row");
   const row = rows[channel];
   if (!row) return;
-  
+
   const triggerBtn = row.querySelector('.mode-selector[data-mode="trigger"]');
   const lfoBtn = row.querySelector('.mode-selector[data-mode="lfo"]');
   const voctBtn = row.querySelector('.mode-selector[data-mode="1voct"]');
@@ -91,12 +96,12 @@ function updateChannelModeUI(channel, mode) {
   const pitchGrid = document.getElementById(`pitch-grid-${channel}`);
   const shViz = document.getElementById(`sh-viz-${channel}`);
   const cvParams = document.getElementById(`cv-params-${channel}`);
-  
+
   // Clear all active states
-  [triggerBtn, lfoBtn, voctBtn, shBtn].forEach(btn => {
+  [triggerBtn, lfoBtn, voctBtn, shBtn].forEach((btn) => {
     if (btn) btn.classList.remove("active");
   });
-  
+
   // Show/hide appropriate UI elements based on mode
   if (mode === CHANNEL_MODES.TRIGGER) {
     if (triggerBtn) triggerBtn.classList.add("active");
@@ -112,7 +117,7 @@ function updateChannelCVModeUI(channel, cvMode) {
   const rows = document.querySelectorAll(".channel-row");
   const row = rows[channel];
   if (!row) return;
-  
+
   const lfoBtn = row.querySelector('.mode-selector[data-mode="lfo"]');
   const voctBtn = row.querySelector('.mode-selector[data-mode="1voct"]');
   const shBtn = row.querySelector('.mode-selector[data-mode="sh"]');
@@ -123,15 +128,15 @@ function updateChannelCVModeUI(channel, cvMode) {
   const cvParams = document.getElementById(`cv-params-${channel}`);
   const lfoParams = row.querySelector(".lfo-params");
   const shParams = row.querySelector(".sh-params");
-  
+
   // Clear CV mode buttons
-  [lfoBtn, voctBtn, shBtn].forEach(btn => {
+  [lfoBtn, voctBtn, shBtn].forEach((btn) => {
     if (btn) btn.classList.remove("active");
   });
-  
+
   // Hide step grid for CV modes
   if (stepGrid) stepGrid.style.display = "none";
-  
+
   // Show appropriate CV mode UI
   switch (cvMode) {
     case CV_MODES.LFO:
@@ -147,7 +152,7 @@ function updateChannelCVModeUI(channel, cvMode) {
         window.updateLFOVisualization(channel);
       }
       break;
-      
+
     case CV_MODES.PITCH:
       if (voctBtn) voctBtn.classList.add("active");
       if (lfoViz) lfoViz.classList.remove("visible");
@@ -155,7 +160,7 @@ function updateChannelCVModeUI(channel, cvMode) {
       if (shViz) shViz.classList.remove("visible");
       if (cvParams) cvParams.classList.remove("visible");
       break;
-      
+
     case CV_MODES.SH:
       if (shBtn) shBtn.classList.add("active");
       if (lfoViz) lfoViz.classList.remove("visible");
@@ -173,7 +178,7 @@ function updateChannelCVModeUI(channel, cvMode) {
       }
       break;
   }
-  
+
   // Adjust container heights after mode change
   if (window.adjustPatternContainerHeights) {
     requestAnimationFrame(() => {
@@ -191,12 +196,21 @@ function updateSubdivisionDisplay(channel) {
   // Update the subdivision input value
   const subdivInput = document.querySelector(`#subdiv-input-${channel}`);
   if (!subdivInput) return;
-  
-  const useCustom = stateManager.getChannelProperty(channel, 'useCustomSubdivisions');
-  const usePolyrhythm = stateManager.getChannelProperty(channel, 'usePolyrhythm');
-  const polyrhythmSteps = stateManager.getChannelProperty(channel, 'polyrhythmSteps');
-  const globalSubdivisions = stateManager.get('subdivisions');
-  
+
+  const useCustom = stateManager.getChannelProperty(
+    channel,
+    "useCustomSubdivisions",
+  );
+  const usePolyrhythm = stateManager.getChannelProperty(
+    channel,
+    "usePolyrhythm",
+  );
+  const polyrhythmSteps = stateManager.getChannelProperty(
+    channel,
+    "polyrhythmSteps",
+  );
+  const globalSubdivisions = stateManager.get("subdivisions");
+
   // Determine what subdivision value to show
   let subdivisions;
   if (!useCustom && usePolyrhythm) {
@@ -204,11 +218,11 @@ function updateSubdivisionDisplay(channel) {
     // show the polyrhythm value
     subdivisions = polyrhythmSteps;
   } else {
-    subdivisions = stateManager.getChannelProperty(channel, 'subdivisions');
+    subdivisions = stateManager.getChannelProperty(channel, "subdivisions");
   }
-  
+
   subdivInput.value = subdivisions;
-  
+
   // Also update polyrhythm input
   const polyInput = document.querySelector(`#poly-input-${channel}`);
   if (polyInput) {

@@ -1,6 +1,6 @@
 /**
  * TimingSystem.js
- * 
+ *
  * Unified timing architecture for the ES-8 Web Sequencer.
  * Replaces the current boolean flags with a more maintainable and extensible system.
  */
@@ -9,9 +9,9 @@
  * Timing mode enums - defines how a channel's pattern length is determined
  */
 export const TIMING_MODES = Object.freeze({
-  GLOBAL: 'global',           // Use global subdivisions
-  CUSTOM: 'custom',           // Use channel-specific subdivisions
-  POLYRHYTHM: 'polyrhythm'    // Use polyrhythm steps (independent of subdivisions)
+  GLOBAL: "global", // Use global subdivisions
+  CUSTOM: "custom", // Use channel-specific subdivisions
+  POLYRHYTHM: "polyrhythm", // Use polyrhythm steps (independent of subdivisions)
 });
 
 /**
@@ -23,7 +23,11 @@ export class TimingConfig {
    * @param {number} subdivisions - Number of subdivisions (used in GLOBAL and CUSTOM modes)
    * @param {number} polyrhythmSteps - Number of steps for polyrhythm (used in POLYRHYTHM mode)
    */
-  constructor(mode = TIMING_MODES.GLOBAL, subdivisions = 8, polyrhythmSteps = 8) {
+  constructor(
+    mode = TIMING_MODES.GLOBAL,
+    subdivisions = 8,
+    polyrhythmSteps = 8,
+  ) {
     this.mode = mode;
     this.subdivisions = subdivisions;
     this.polyrhythmSteps = polyrhythmSteps;
@@ -43,28 +47,35 @@ export class TimingConfig {
       case TIMING_MODES.POLYRHYTHM:
         return this.polyrhythmSteps;
       default:
-        console.warn(`Unknown timing mode: ${this.mode}, falling back to global`);
+        console.warn(
+          `Unknown timing mode: ${this.mode}, falling back to global`,
+        );
         return globalSubdivisions;
     }
   }
 
   /**
    * Create from legacy boolean flags (for migration)
-   * @param {boolean} useCustomSubdivisions 
-   * @param {boolean} usePolyrhythm 
-   * @param {number} subdivisions 
-   * @param {number} polyrhythmSteps 
+   * @param {boolean} useCustomSubdivisions
+   * @param {boolean} usePolyrhythm
+   * @param {number} subdivisions
+   * @param {number} polyrhythmSteps
    * @returns {TimingConfig}
    */
-  static fromLegacyFlags(useCustomSubdivisions, usePolyrhythm, subdivisions, polyrhythmSteps) {
+  static fromLegacyFlags(
+    useCustomSubdivisions,
+    usePolyrhythm,
+    subdivisions,
+    polyrhythmSteps,
+  ) {
     let mode = TIMING_MODES.GLOBAL;
-    
+
     if (usePolyrhythm) {
       mode = TIMING_MODES.POLYRHYTHM;
     } else if (useCustomSubdivisions) {
       mode = TIMING_MODES.CUSTOM;
     }
-    
+
     return new TimingConfig(mode, subdivisions, polyrhythmSteps);
   }
 
@@ -75,7 +86,7 @@ export class TimingConfig {
   toLegacyFlags() {
     return {
       useCustomSubdivisions: this.mode === TIMING_MODES.CUSTOM,
-      usePolyrhythm: this.mode === TIMING_MODES.POLYRHYTHM
+      usePolyrhythm: this.mode === TIMING_MODES.POLYRHYTHM,
     };
   }
 
@@ -94,14 +105,20 @@ export class TimingConfig {
    */
   validate(maxSubdivisions = 64) {
     // Ensure subdivisions are within valid range
-    this.subdivisions = Math.max(1, Math.min(maxSubdivisions, this.subdivisions));
-    this.polyrhythmSteps = Math.max(1, Math.min(maxSubdivisions, this.polyrhythmSteps));
-    
+    this.subdivisions = Math.max(
+      1,
+      Math.min(maxSubdivisions, this.subdivisions),
+    );
+    this.polyrhythmSteps = Math.max(
+      1,
+      Math.min(maxSubdivisions, this.polyrhythmSteps),
+    );
+
     // Ensure mode is valid
     if (!Object.values(TIMING_MODES).includes(this.mode)) {
       this.mode = TIMING_MODES.GLOBAL;
     }
-    
+
     return this;
   }
 }
@@ -124,15 +141,15 @@ export class ChannelTiming {
   /**
    * Calculate phase relationship between old and new pattern lengths
    * Used for pattern migration
-   * @param {number} oldLength 
-   * @param {number} newLength 
+   * @param {number} oldLength
+   * @param {number} newLength
    * @returns {{ratio: number, isExpanding: boolean, gcd: number}}
    */
   static calculatePhaseRelationship(oldLength, newLength) {
     const gcd = this.greatestCommonDivisor(oldLength, newLength);
     const ratio = newLength / oldLength;
     const isExpanding = newLength > oldLength;
-    
+
     return { ratio, isExpanding, gcd };
   }
 
@@ -150,8 +167,8 @@ export class ChannelTiming {
 
   /**
    * Calculate the greatest common divisor of two numbers
-   * @param {number} a 
-   * @param {number} b 
+   * @param {number} a
+   * @param {number} b
    * @returns {number}
    */
   static greatestCommonDivisor(a, b) {
@@ -189,39 +206,43 @@ export class ChannelTiming {
    * @param {number} globalSubdivisions - Current global subdivisions
    * @returns {Object} Updated channel state
    */
-  static ensureStateConsistency(channelState, newTimingConfig, globalSubdivisions) {
-    const oldLength = channelState.timingConfig 
+  static ensureStateConsistency(
+    channelState,
+    newTimingConfig,
+    globalSubdivisions,
+  ) {
+    const oldLength = channelState.timingConfig
       ? channelState.timingConfig.getPatternLength(globalSubdivisions)
       : globalSubdivisions;
-    
+
     const newLength = newTimingConfig.getPatternLength(globalSubdivisions);
-    
+
     // Update timing config
     const updatedState = {
       ...channelState,
-      timingConfig: newTimingConfig.clone()
+      timingConfig: newTimingConfig.clone(),
     };
-    
+
     // If pattern length changed, we might need to migrate data
     if (oldLength !== newLength) {
       updatedState._needsMigration = true;
       updatedState._oldLength = oldLength;
       updatedState._newLength = newLength;
     }
-    
+
     return updatedState;
   }
 
   /**
    * Get display information for timing mode
-   * @param {TimingConfig} timingConfig 
-   * @param {number} globalSubdivisions 
+   * @param {TimingConfig} timingConfig
+   * @param {number} globalSubdivisions
    * @returns {{mode: string, steps: number, label: string}}
    */
   static getTimingDisplay(timingConfig, globalSubdivisions) {
     const steps = timingConfig.getPatternLength(globalSubdivisions);
-    let label = '';
-    
+    let label = "";
+
     switch (timingConfig.mode) {
       case TIMING_MODES.GLOBAL:
         label = `Global (${steps} steps)`;
@@ -233,7 +254,7 @@ export class ChannelTiming {
         label = `Poly ${steps}:${globalSubdivisions}`;
         break;
     }
-    
+
     return { mode: timingConfig.mode, steps, label };
   }
 }
@@ -251,27 +272,27 @@ export function migrateChannelToTimingConfig(oldChannelState) {
     polyrhythmSteps = 8,
     ...rest
   } = oldChannelState;
-  
+
   const timingConfig = TimingConfig.fromLegacyFlags(
     useCustomSubdivisions,
     usePolyrhythm,
     subdivisions,
-    polyrhythmSteps
+    polyrhythmSteps,
   );
-  
+
   return {
     ...rest,
     subdivisions, // Keep for backward compatibility
     polyrhythmSteps, // Keep for backward compatibility
-    timingConfig
+    timingConfig,
   };
 }
 
 /**
  * Helper function to get pattern length for a channel
  * Works with both old and new timing systems
- * @param {Object} channelState 
- * @param {number} globalSubdivisions 
+ * @param {Object} channelState
+ * @param {number} globalSubdivisions
  * @returns {number}
  */
 export function getChannelPatternLength(channelState, globalSubdivisions) {
@@ -279,14 +300,14 @@ export function getChannelPatternLength(channelState, globalSubdivisions) {
   if (channelState.timingConfig) {
     return channelState.timingConfig.getPatternLength(globalSubdivisions);
   }
-  
+
   // Old system fallback
   if (channelState.usePolyrhythm) {
     return channelState.polyrhythmSteps || globalSubdivisions;
   } else if (channelState.useCustomSubdivisions) {
     return channelState.subdivisions || globalSubdivisions;
   }
-  
+
   return globalSubdivisions;
 }
 
@@ -294,5 +315,5 @@ export function getChannelPatternLength(channelState, globalSubdivisions) {
 export const DEFAULT_TIMING_CONFIG = new TimingConfig(
   TIMING_MODES.GLOBAL,
   8,
-  8
+  8,
 );

@@ -18,15 +18,15 @@ export class StateManager {
    */
   get(path) {
     if (!path) return this.deepClone(this._state);
-    
-    const keys = path.split('.');
+
+    const keys = path.split(".");
     let value = this._state;
-    
+
     for (const key of keys) {
       if (value == null) return undefined;
       value = value[key];
     }
-    
+
     return this.deepClone(value);
   }
 
@@ -36,9 +36,9 @@ export class StateManager {
    * @param {*} value - The value to set
    */
   set(path, value) {
-    const keys = path.split('.');
+    const keys = path.split(".");
     const lastKey = keys.pop();
-    
+
     let target = this._state;
     for (const key of keys) {
       if (!(key in target)) {
@@ -46,10 +46,10 @@ export class StateManager {
       }
       target = target[key];
     }
-    
+
     const oldValue = target[lastKey];
     target[lastKey] = value;
-    
+
     this.notifyListeners(path, value, oldValue);
   }
 
@@ -59,12 +59,12 @@ export class StateManager {
    */
   transaction(updater) {
     this._transactionDepth++;
-    
+
     try {
       updater();
     } finally {
       this._transactionDepth--;
-      
+
       if (this._transactionDepth === 0) {
         // Notify all pending listeners
         for (const path of this._pendingNotifications) {
@@ -89,9 +89,9 @@ export class StateManager {
     if (!this._listeners.has(path)) {
       this._listeners.set(path, new Set());
     }
-    
+
     this._listeners.get(path).add(listener);
-    
+
     // Return unsubscribe function
     return () => {
       const listeners = this._listeners.get(path);
@@ -111,7 +111,7 @@ export class StateManager {
    */
   subscribeAll(listener) {
     this._globalListeners.add(listener);
-    
+
     return () => {
       this._globalListeners.delete(listener);
     };
@@ -126,24 +126,24 @@ export class StateManager {
       this._pendingNotifications.add(path);
       return;
     }
-    
+
     // Notify specific path listeners
     const pathListeners = this._listeners.get(path) || [];
     for (const listener of pathListeners) {
       listener(newValue, oldValue, path);
     }
-    
+
     // Notify parent path listeners
-    const pathParts = path.split('.');
+    const pathParts = path.split(".");
     for (let i = pathParts.length - 1; i > 0; i--) {
-      const parentPath = pathParts.slice(0, i).join('.');
+      const parentPath = pathParts.slice(0, i).join(".");
       const parentListeners = this._listeners.get(parentPath) || [];
       for (const listener of parentListeners) {
         const parentValue = this.get(parentPath);
         listener(parentValue, parentValue, parentPath);
       }
     }
-    
+
     // Notify global listeners
     for (const listener of this._globalListeners) {
       listener(path, newValue, oldValue);
@@ -175,9 +175,9 @@ export class StateManager {
    * @private
    */
   deepClone(obj) {
-    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj === null || typeof obj !== "object") return obj;
     if (obj instanceof Date) return new Date(obj.getTime());
-    if (obj instanceof Array) return obj.map(item => this.deepClone(item));
+    if (obj instanceof Array) return obj.map((item) => this.deepClone(item));
     if (obj instanceof Object) {
       const cloned = {};
       for (const key in obj) {

@@ -4,6 +4,9 @@ const MAX_SUBDIVISIONS = 96;
 const NUM_CHANNELS = 8;
 const SAMPLE_RATE = 48000;
 
+// Envelope time constants (for reference)
+const MS_TO_SAMPLES = SAMPLE_RATE / 1000; // Convert milliseconds to samples
+
 class SequencerProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -39,6 +42,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
       .map(() => ({
         mode: "trigger", // 'trigger' or 'cv'
         cvMode: "lfo", // 'lfo' or '1voct' or 'sh'
+        triggerDuration: DEFAULT_TRIGGER_DURATION_SAMPLES, // Trigger duration in samples
         useCustomSubdivisions: false, // Whether this channel uses custom subdivisions
         subdivisions: 8, // Per-channel subdivisions (2-96)
         usePolyrhythm: false, // Whether this channel uses polyrhythm
@@ -73,10 +77,6 @@ class SequencerProcessor extends AudioWorkletProcessor {
       .map(() => ({
         active: false,
         sampleCount: 0,
-        // Envelope phases (for future envelope implementation)
-        phase: "idle", // 'idle', 'attack', 'decay', 'sustain', 'release'
-        phaseStartTime: 0,
-        velocity: 1.0, // For velocity-sensitive envelopes
       }));
 
     // Calculate initial timing
@@ -121,8 +121,6 @@ class SequencerProcessor extends AudioWorkletProcessor {
           this.triggerStates.forEach((state) => {
             state.active = false;
             state.sampleCount = 0;
-            state.phase = "idle";
-            state.phaseStartTime = 0;
           });
           break;
 
@@ -182,6 +180,12 @@ class SequencerProcessor extends AudioWorkletProcessor {
             if (data.sh) {
               this.channels[data.channel].sh = data.sh;
             }
+          }
+          break;
+
+        case "setTriggerDuration":
+          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
+            this.channels[data.channel].triggerDuration = data.duration;
           }
           break;
 
@@ -270,36 +274,31 @@ class SequencerProcessor extends AudioWorkletProcessor {
       : this.subdivisions;
   }
 
-  // Get trigger duration for a channel (ready for per-channel customization)
+  // Get trigger duration for a channel
   getTriggerDuration(channel) {
-    // For now, return the default duration
-    // This will be replaced with per-channel trigger duration
-    return DEFAULT_TRIGGER_DURATION_SAMPLES;
-  }
-
-  // Calculate envelope value (stub for future implementation)
-  calculateEnvelopeValue(triggerState) {
-    // For now, return constant 1.0 (full gate)
-    // This will be replaced with actual envelope calculation
-    // based on triggerState.phase (attack, decay, sustain, release)
-    return 1.0;
+    return this.channels[channel].triggerDuration;
   }
 
   // Generate trigger output for a channel
   generateTriggerOutput(channel, triggerState) {
+    if (!triggerState.active) {
+      return 0; // No trigger active
+    }
+
+    // Increment sample count
+    triggerState.sampleCount++;
+
+    // Get the trigger duration for this channel
     const triggerDuration = this.getTriggerDuration(channel);
 
-    if (triggerState.active && triggerState.sampleCount < triggerDuration) {
-      triggerState.sampleCount++;
-      // For now, return constant gate value - will be replaced with envelope
-      return 1.0 * this.calculateEnvelopeValue(triggerState); // +10V * envelope
+    // Output 1.0 for the configured duration, then deactivate
+    if (triggerState.sampleCount <= triggerDuration) {
+      return 1.0;
     } else {
-      if (triggerState.sampleCount >= triggerDuration) {
-        triggerState.active = false;
-        triggerState.sampleCount = 0;
-        triggerState.phase = "idle";
-      }
-      return 0; // 0V
+      // Trigger complete
+      triggerState.active = false;
+      triggerState.sampleCount = 0;
+      return 0;
     }
   }
 
@@ -446,9 +445,6 @@ class SequencerProcessor extends AudioWorkletProcessor {
       if (this.pattern[channel][currentStep]) {
         this.triggerStates[channel].active = true;
         this.triggerStates[channel].sampleCount = 0;
-        this.triggerStates[channel].phase = "attack"; // Start envelope
-        this.triggerStates[channel].phaseStartTime = currentTime +
-          sampleIndex / sampleRate;
       }
     } else if (
       channelConfig.mode === "cv" &&

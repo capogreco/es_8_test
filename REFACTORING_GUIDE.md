@@ -2,7 +2,9 @@
 
 ## Overview
 
-The ES-8 Web Sequencer has been refactored into a modular, maintainable architecture with clear separation of concerns. This guide explains the new structure and how to work with it.
+The ES-8 Web Sequencer has been refactored into a modular, maintainable
+architecture with clear separation of concerns. This guide explains the new
+structure and how to work with it.
 
 ## Architecture
 
@@ -48,35 +50,35 @@ The ES-8 Web Sequencer has been refactored into a modular, maintainable architec
 ### Working with State
 
 ```javascript
-import { stateManager } from './StateManager.js';
+import { stateManager } from "./StateManager.js";
 
 // Get state
-const subdivisions = stateManager.get('subdivisions');
-const channelMode = stateManager.getChannelProperty(0, 'mode');
+const subdivisions = stateManager.get("subdivisions");
+const channelMode = stateManager.getChannelProperty(0, "mode");
 
 // Update state (triggers UI updates automatically)
-stateManager.set('subdivisions', 16);
-stateManager.setChannelProperty(0, 'mode', 'trigger');
+stateManager.set("subdivisions", 16);
+stateManager.setChannelProperty(0, "mode", "trigger");
 
 // Subscribe to changes
-const unsubscribe = stateManager.subscribe('channels.0.mode', (newMode) => {
-  console.log('Channel 0 mode changed to:', newMode);
+const unsubscribe = stateManager.subscribe("channels.0.mode", (newMode) => {
+  console.log("Channel 0 mode changed to:", newMode);
 });
 
 // Batch updates
 stateManager.transaction(() => {
-  stateManager.set('subdivisions', 32);
-  stateManager.setChannelProperty(0, 'subdivisions', 32);
+  stateManager.set("subdivisions", 32);
+  stateManager.setChannelProperty(0, "subdivisions", 32);
 });
 ```
 
 ### Working with Channels
 
 ```javascript
-import { ChannelFactory, TriggerChannel } from './ChannelClasses.js';
+import { ChannelFactory, TriggerChannel } from "./ChannelClasses.js";
 
 // Create a channel
-const channel = ChannelFactory.createChannel(0, 'trigger');
+const channel = ChannelFactory.createChannel(0, "trigger");
 
 // Work with trigger channel
 if (channel instanceof TriggerChannel) {
@@ -86,47 +88,47 @@ if (channel instanceof TriggerChannel) {
 }
 
 // Change channel mode
-const lfoChannel = ChannelFactory.createChannel(0, 'cv', 'lfo');
-lfoChannel.setWaveform('sine');
+const lfoChannel = ChannelFactory.createChannel(0, "cv", "lfo");
+lfoChannel.setWaveform("sine");
 lfoChannel.setRate(2.5);
 ```
 
 ### Creating UI Components
 
 ```javascript
-import * as UI from './UIComponentFactory.js';
+import * as UI from "./UIComponentFactory.js";
 
 // Create a mode button
 const triggerBtn = UI.createModeButton({
-  mode: 'trigger',
-  text: 'Trig',
+  mode: "trigger",
+  text: "Trig",
   isActive: true,
-  onClick: () => setChannelMode(channel, 'trigger')
+  onClick: () => setChannelMode(channel, "trigger"),
 });
 
 // Create parameter slider
 const { container, slider } = UI.createSlider({
-  id: 'lfo-rate',
-  label: 'Rate',
+  id: "lfo-rate",
+  label: "Rate",
   min: 0.01,
   max: 10,
   value: 1,
   step: 0.01,
   displayFormatter: (v) => `${v.toFixed(2)} Hz`,
-  onChange: (value) => updateLFO(channel, 'rate', value)
+  onChange: (value) => updateLFO(channel, "rate", value),
 });
 
 // Create step grid
 const grid = UI.createStepGrid(channel, subdivisions, pattern, {
   onMouseDown: handleStepClick,
-  onMouseEnter: handleStepDrag
+  onMouseEnter: handleStepDrag,
 });
 ```
 
 ### Pattern Migration
 
 ```javascript
-import { migratePattern, migratePitches } from './PatternMigration.js';
+import { migratePattern, migratePitches } from "./PatternMigration.js";
 
 // Migrate trigger pattern
 const newPattern = migratePattern(oldPattern, 8, 16);
@@ -135,12 +137,16 @@ const newPattern = migratePattern(oldPattern, 8, 16);
 const newPitches = migratePitches(oldPitches, 8, 16);
 
 // Batch migration
-import { batchMigrate, MIGRATION_STRATEGIES } from './PatternMigration.js';
+import { batchMigrate, MIGRATION_STRATEGIES } from "./PatternMigration.js";
 
-const migrated = batchMigrate({
-  pattern: { data: oldPattern, strategy: MIGRATION_STRATEGIES.PATTERN },
-  pitches: { data: oldPitches, strategy: MIGRATION_STRATEGIES.PITCH }
-}, 8, 16);
+const migrated = batchMigrate(
+  {
+    pattern: { data: oldPattern, strategy: MIGRATION_STRATEGIES.PATTERN },
+    pitches: { data: oldPitches, strategy: MIGRATION_STRATEGIES.PITCH },
+  },
+  8,
+  16,
+);
 ```
 
 ### Audio Worklet Communication
@@ -156,7 +162,7 @@ workletService.updatePattern(channel, step, true);
 workletService.setChannelSubdivisions(channel, 16);
 
 // Handle messages from worklet
-workletService.onMessage('step', (message) => {
+workletService.onMessage("step", (message) => {
   updateStepIndicator(message.channel, message.step);
 });
 ```
@@ -227,4 +233,5 @@ The refactored architecture makes it easy to add:
 - Export/import functionality
 - Real-time collaboration features
 
-The modular structure ensures new features can be added without affecting existing functionality.
+The modular structure ensures new features can be added without affecting
+existing functionality.

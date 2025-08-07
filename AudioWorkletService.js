@@ -1,4 +1,4 @@
-import { MESSAGE_TYPES } from './constants.js';
+import { MESSAGE_TYPES } from "./constants.js";
 
 /**
  * AudioWorkletService - Centralizes all communication with the audio worklet
@@ -14,7 +14,7 @@ class AudioWorkletService {
 
   /**
    * Initialize the service with the audio worklet node
-   * @param {AudioWorkletNode} workletNode 
+   * @param {AudioWorkletNode} workletNode
    */
   initialize(workletNode) {
     this.workletNode = workletNode;
@@ -31,8 +31,8 @@ class AudioWorkletService {
 
   /**
    * Register a handler for a specific message type
-   * @param {string} messageType 
-   * @param {Function} handler 
+   * @param {string} messageType
+   * @param {Function} handler
    */
   onMessage(messageType, handler) {
     if (!this.messageHandlers.has(messageType)) {
@@ -43,28 +43,28 @@ class AudioWorkletService {
 
   /**
    * Handle incoming messages from the worklet
-   * @param {Object} message 
+   * @param {Object} message
    */
   handleMessage(message) {
-    if (!message || typeof message !== 'object') {
-      console.warn('Invalid message received:', message);
+    if (!message || typeof message !== "object") {
+      console.warn("Invalid message received:", message);
       return;
     }
-    
+
     const handlers = this.messageHandlers.get(message.type);
     if (handlers) {
-      handlers.forEach(handler => handler(message));
+      handlers.forEach((handler) => handler(message));
     }
   }
 
   /**
    * Send a message to the worklet
-   * @param {string} type 
-   * @param {Object} data 
+   * @param {string} type
+   * @param {Object} data
    */
   sendMessage(type, data) {
     const message = { type, data };
-    
+
     if (this.isInitialized && this.workletNode) {
       this.workletNode.port.postMessage(message);
     } else {
@@ -110,7 +110,7 @@ class AudioWorkletService {
   setChannelSubdivisions(channel, subdivisions) {
     this.sendMessage(MESSAGE_TYPES.SET_CHANNEL_SUBDIVISIONS, {
       channel,
-      subdivisions
+      subdivisions,
     });
   }
 
@@ -118,7 +118,7 @@ class AudioWorkletService {
     this.sendMessage(MESSAGE_TYPES.SET_POLYRHYTHM, {
       channel,
       enabled,
-      steps
+      steps,
     });
   }
 
@@ -128,7 +128,7 @@ class AudioWorkletService {
     this.sendMessage(MESSAGE_TYPES.UPDATE_PATTERN, {
       channel,
       step,
-      active
+      active,
     });
   }
 
@@ -151,14 +151,21 @@ class AudioWorkletService {
       mode,
       cvMode,
       lfo,
-      sh
+      sh,
+    });
+  }
+
+  setTriggerDuration(channel, duration) {
+    this.sendMessage(MESSAGE_TYPES.SET_TRIGGER_DURATION, {
+      channel,
+      duration,
     });
   }
 
   setCVMode(channel, cvMode) {
     this.sendMessage(MESSAGE_TYPES.SET_CV_MODE, {
       channel,
-      cvMode
+      cvMode,
     });
   }
 
@@ -167,7 +174,7 @@ class AudioWorkletService {
   updateLFO(channel, lfo) {
     this.sendMessage(MESSAGE_TYPES.UPDATE_LFO, {
       channel,
-      lfo
+      lfo,
     });
   }
 
@@ -177,7 +184,7 @@ class AudioWorkletService {
     this.sendMessage(MESSAGE_TYPES.UPDATE_PITCH, {
       channel,
       step,
-      pitch
+      pitch,
     });
   }
 
@@ -186,14 +193,14 @@ class AudioWorkletService {
   updateSH(channel, sh) {
     this.sendMessage(MESSAGE_TYPES.UPDATE_SH, {
       channel,
-      sh
+      sh,
     });
   }
 
   setSHValues(channel, values) {
     this.sendMessage(MESSAGE_TYPES.SET_SH_VALUES, {
       channel,
-      values
+      values,
     });
   }
 
@@ -201,9 +208,9 @@ class AudioWorkletService {
 
   /**
    * Send pattern data for a single channel
-   * @param {number} channel 
-   * @param {Array} pattern 
-   * @param {number} subdivisions 
+   * @param {number} channel
+   * @param {Array} pattern
+   * @param {number} subdivisions
    */
   sendChannelPattern(channel, pattern, subdivisions) {
     // Clear existing pattern first
@@ -219,9 +226,9 @@ class AudioWorkletService {
 
   /**
    * Send pitch data for a channel
-   * @param {number} channel 
-   * @param {Array} pitches 
-   * @param {number} subdivisions 
+   * @param {number} channel
+   * @param {Array} pitches
+   * @param {number} subdivisions
    */
   sendChannelPitches(channel, pitches, subdivisions) {
     for (let step = 0; step < subdivisions; step++) {

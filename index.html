@@ -24,6 +24,10 @@
         margin: 0 auto;
       }
 
+      .channel-row:last-child {
+        margin-bottom: 20px;
+      }
+
       .controls {
         background: #1a1a1a;
         padding: 10px 15px;
@@ -92,7 +96,7 @@
         display: grid;
         gap: 5px;
         align-items: center;
-        grid-template-columns: 40px 100px auto 1fr;
+        grid-template-columns: 40px 100px 120px 1fr;
         margin-bottom: 5px;
       }
 
@@ -119,14 +123,16 @@
 
       .sequencer-grid {
         display: grid;
-        gap: 10px;
+        gap: 8px;
+        position: relative;
       }
 
       .channel-row {
         display: grid;
         gap: 5px;
-        align-items: center;
-        grid-template-columns: 40px 100px auto 1fr;
+        align-items: flex-start;
+        grid-template-columns: 40px 100px 120px 1fr;
+        min-height: 40px;
       }
 
       .channel-label {
@@ -220,8 +226,10 @@
       .mode-controls {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 2px;
         width: 120px;
+        max-width: 120px;
+        overflow: hidden;
       }
 
       .mode-buttons {
@@ -234,14 +242,15 @@
         background: #2a2a2a;
         color: #e0e0e0;
         border: 1px solid #444;
-        padding: 3px 4px;
-        border-radius: 4px;
-        font-size: 9px;
+        padding: 2px 3px;
+        border-radius: 3px;
+        font-size: 8px;
         cursor: pointer;
         transition: all 0.2s;
         flex: 1;
         min-width: 0;
         text-align: center;
+        line-height: 1.2;
       }
 
       .mode-selector:hover {
@@ -258,11 +267,11 @@
       .cv-params {
         display: none;
         flex-direction: column;
-        gap: 5px;
+        gap: 4px;
         background: #1a1a1a;
-        padding: 8px;
+        padding: 6px;
         border-radius: 4px;
-        margin-top: 5px;
+        margin-top: 2px;
         font-size: 10px;
       }
 
@@ -388,30 +397,30 @@
       .sh-visualization.visible {
         display: block;
       }
-      
+
       .timing-controls {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        font-size: 10px;
+        gap: 2px;
+        font-size: 9px;
         background: #1a1a1a;
-        padding: 4px 6px;
+        padding: 3px 4px;
         border-radius: 4px;
       }
-      
+
       .timing-control {
         display: flex;
         align-items: center;
         gap: 4px;
       }
-      
+
       .timing-control input[type="checkbox"] {
         width: 12px;
         height: 12px;
         margin: 0;
         cursor: pointer;
       }
-      
+
       .timing-control input[type="number"] {
         width: 32px;
         padding: 2px 4px;
@@ -422,13 +431,13 @@
         font-size: 10px;
         text-align: center;
       }
-      
+
       .timing-control input[type="number"]:disabled {
         color: #666;
         border-color: #333;
         cursor: not-allowed;
       }
-      
+
       .timing-control label {
         font-size: 9px;
         color: #888;
@@ -437,12 +446,12 @@
         min-width: 12px;
         cursor: pointer;
       }
-      
+
       .timing-control.polyrhythm input[type="number"]:not(:disabled) {
         color: #ff8800;
         border-color: #ff8800;
       }
-      
+
       .timing-control.subdivision input[type="number"]:not(:disabled) {
         color: #00ff88;
         border-color: #00ff88;
@@ -493,8 +502,8 @@
     </div>
 
     <script type="module">
-      import './AudioWorkletService.js';
-      import './sequencer.js';
+      import "./AudioWorkletService.js";
+      import "./sequencer.js";
     </script>
   </body>
 </html>
