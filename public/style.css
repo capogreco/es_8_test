@@ -87,103 +87,123 @@ body {
   background: #111;
 }
 
+.param-input select,
+select.param-input {
+  width: 60px;
+}
+
 .param-label {
   color: #444;
   margin-left: 2px;
 }
 
-/* Channel Selector */
-.channels {
-  display: flex;
-  padding: 10px;
-  gap: 2px;
-  background: #000;
-  border-bottom: 1px solid #222;
-}
-
-.channel-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* New Grid-Based Channel Rows */
+.channel-row {
+  display: grid;
+  grid-template-columns: 40px 180px 1fr;
+  gap: 10px;
   align-items: center;
-  gap: 4px;
-}
-
-.channel-controls {
-  display: flex;
-  gap: 2px;
-  width: 100%;
-}
-
-.channel-select {
-  width: 100%;
-  aspect-ratio: 2/1;
-  background: #111;
-  border: 1px solid #222;
-  color: #444;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  transition: all 0.1s;
-}
-
-.channel-select:hover {
-  background: #1a1a1a;
-  color: #666;
-}
-
-.channel-select.active {
-  background: #222;
-  color: #fff;
-  border-color: #444;
-  box-shadow: 0 0 10px rgba(255,255,255,0.1);
-}
-
-.channel-mode {
-  flex: 1;
-  height: 16px;
+  padding: 6px;
   background: #0a0a0a;
-  border: 1px solid #1a1a1a;
+  border-radius: 2px;
+  margin-bottom: 4px;
+}
+
+.channel-params {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.1s;
-}
-
-.channel-mode:hover {
-  color: #555;
-}
-
-.channel-mode.trigger { color: #666; }
-.channel-mode.lfo { color: #666; }
-.channel-mode.pitch { color: #666; }
-.channel-mode.sh { color: #666; }
-
-/* Context Panel */
-.context-panel {
-  padding: 10px;
-  background: #050505;
-  border-bottom: 1px solid #222;
-  min-height: 60px;
-  display: none;
-}
-
-.context-panel.active {
-  display: block;
-}
-
-.context-header {
-  color: #666;
-  margin-bottom: 8px;
+  gap: 6px;
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
+
+.mode-btn {
+  background: #111;
+  border: 1px solid #333;
+  color: #666;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 10px;
+  min-width: 20px;
+  height: 20px;
+}
+
+.mode-btn:hover {
+  background: #1a1a1a;
+  color: #888;
+}
+
+.steps-input {
+  width: 32px;
+}
+
+.dur-input {
+  width: 40px;
+}
+
+.amp-input {
+  width: 32px;
+}
+
+.couple-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #333;
+  background: #000;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+}
+
+.couple-checkbox:hover {
+  border-color: #555;
+  background: #111;
+}
+
+.couple-checkbox:checked {
+  background: #222;
+  border-color: #666;
+}
+
+.couple-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  color: #888;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.util-label {
+  color: #888;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.spacer {
+  width: 14px;
+}
+
+.param-label {
+  color: #555;
+  font-size: 9px;
+  margin: 0 2px;
+}
+
+.disabled-input {
+  background: #0a0a0a;
+  color: #444;
+  cursor: not-allowed;
+}
+
+.disabled-input:focus {
+  background: #0a0a0a;
+  color: #444;
+  border-color: #333;
+}
+
 
 .context-params {
   display: flex;
@@ -224,19 +244,6 @@ body {
   gap: 8px;
 }
 
-.channel-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-  background: #0a0a0a;
-  border-radius: 2px;
-}
-
-.channel-row.selected {
-  background: #111;
-  border: 1px solid #222;
-}
 
 .channel-label {
   width: 20px;
@@ -245,9 +252,6 @@ body {
   color: #666;
 }
 
-.channel-row.selected .channel-label {
-  color: #fff;
-}
 
 .pattern-grid {
   display: grid;
@@ -381,9 +385,42 @@ body {
 }
 
 .mode-trigger::before { content: '⚡'; }
-.mode-lfo::before { content: '🌊'; }
 .mode-pitch::before { content: '🎹'; }
-.mode-sh::before { content: '🔀'; }
+.mode-clock::before { content: '🕒'; }
+.mode-ramp::before { content: '📈'; }
+
+/* Utility channel status styling */
+.utility-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 2px;
+}
+
+.utility-label {
+  font-size: 9px;
+  color: #888;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* New visual states for polyrhythms and coupling */
+.pattern-step.inactive {
+  background: #080808; /* Darker than the default step background */
+  border-color: #111;
+  opacity: 0.5;
+}
+
+.pattern-grid.disabled {
+  opacity: 0.4;
+}
+
+.pattern-grid.disabled .pattern-step:not(.pitch-cell) {
+  pointer-events: none; /* Only disable trigger steps, not pitch cells */
+}
 
 /* Grid zoom controls */
 .grid-controls {
@@ -423,7 +460,6 @@ body {
 }
 
 /* Keyboard focus */
-.channel-select:focus,
 .transport-btn:focus {
   outline: 1px solid #444;
   outline-offset: -1px;
@@ -482,4 +518,50 @@ body.dragging {
 .pitch-cell:focus:not(:placeholder-shown) {
   color: #fff;
   background: #111;
+}
+
+.pitch-cell.disabled-cell {
+  background: #050505;
+  border-color: #0a0a0a;
+  color: #222;
+  cursor: not-allowed;
+}
+
+.pitch-cell.disabled-cell:focus {
+  background: #050505;
+  border-color: #0a0a0a;
+  color: #222;
+}
+
+/* Custom checkbox styling for coupling controls */
+.context-params input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #333;
+  background: #000;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+}
+
+.context-params input[type="checkbox"]:hover {
+  border-color: #555;
+  background: #111;
+}
+
+.context-params input[type="checkbox"]:checked {
+  background: #222;
+  border-color: #666;
+}
+
+.context-params input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
 }

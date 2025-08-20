@@ -30,100 +30,22 @@
             <button class="zoom-btn" id="zoomIn">+</button>
           </div>
         </div>
-      </div>
 
-      <!-- Channel Selector -->
-      <div class="channels">
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="0">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="0">1</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="0">■</div>
-            <div class="visibility-checkbox" data-channel="0" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="1">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="1">2</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="1">■</div>
-            <div class="visibility-checkbox" data-channel="1" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="2">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="2">3</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="2">■</div>
-            <div class="visibility-checkbox" data-channel="2" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="3">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="3">4</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="3">■</div>
-            <div class="visibility-checkbox" data-channel="3" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="4">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="4">5</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="4">■</div>
-            <div class="visibility-checkbox" data-channel="4" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="5">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="5">6</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="5">■</div>
-            <div class="visibility-checkbox" data-channel="5" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="6">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="6">7</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="6">■</div>
-            <div class="visibility-checkbox" data-channel="6" title="Show channel">□</div>
-          </div>
-        </div>
-        <div class="channel-block">
-          <div class="step-indicator" data-channel="7">
-            <div class="step-indicator-bar"></div>
-          </div>
-          <div class="channel-select" data-channel="7">8</div>
-          <div class="channel-controls">
-            <div class="channel-mode trigger" data-channel="7">■</div>
-            <div class="visibility-checkbox" data-channel="7" title="Show channel">□</div>
-          </div>
-        </div>
-      </div>
+        <!-- ADD a spacer and the new utility controls -->
+        <div class="transport-spacer"></div>
 
-      <!-- Context Panel -->
-      <div class="context-panel" id="contextPanel">
-        <div class="context-header" id="contextHeader">CH1: TRIGGER</div>
-        <div class="context-params" id="contextParams">
-          <!-- Dynamic content based on mode -->
+        <div class="context-param" title="Channel 8: Clock Pulse Duration">
+          <label>clock:</label>
+          <input type="text" class="param-input" id="clockDuration">
+          <span class="param-label" id="clockDurationMs"></span>
         </div>
-        <div class="context-viz" id="contextViz" style="display: none;">
-          <!-- Visualization canvas -->
+        
+        <div class="context-param" title="Channel 7: Phase Ramp Polarity">
+          <label>ramp:</label>
+          <select class="param-input" id="rampPolarity">
+            <option value="+ve">+ve</option>
+            <option value="-ve">-ve</option>
+          </select>
         </div>
       </div>
 

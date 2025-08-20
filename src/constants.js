@@ -5,6 +5,8 @@
 // Sequencer limits
 export const SEQUENCER_CONSTANTS = {
   MAX_CHANNELS: 8,
+  NUM_CHANNELS: 8, // The total number of physical outputs
+  NUM_SEQUENCER_CHANNELS: 6, // The number of channels for user patterns
   MAX_SUBDIVISIONS: 96,
   MIN_SUBDIVISIONS: 2,
   DEFAULT_SUBDIVISIONS: 8,
@@ -12,35 +14,26 @@ export const SEQUENCER_CONSTANTS = {
   MIN_CYCLE_TIME: 0.5,
   MAX_CYCLE_TIME: 8.0,
   TRIGGER_DURATION_MS: 20,
-  TRIGGER_DURATION_SAMPLES: 960, // 20ms at 48kHz
+  TRIGGER_DURATION_SAMPLES: 48, // ~1ms at 48kHz
   TRIGGER_DURATION_SHORT_SAMPLES: 8, // ~0.167ms at 48kHz
   SAMPLE_RATE: 48000,
 };
 
-// Channel modes
+// Channel modes - EVOLVED MODEL
 export const CHANNEL_MODES = {
   TRIGGER: "trigger",
-  CV: "cv",
+  PITCH: "pitch",
+  CLOCK: "clock", // New dedicated clock output
+  RAMP: "ramp",   // New dedicated ramp output
 };
 
-// CV modes
-export const CV_MODES = {
-  LFO: "lfo",
-  PITCH: "1voct",
-  SH: "sh",
+// Ramp polarities
+export const RAMP_POLARITIES = {
+  POSITIVE: false, // 0V → +amplitude (normal)
+  NEGATIVE: true,  // +amplitude → 0V (inverted)
 };
 
-// LFO waveforms
-export const LFO_WAVEFORMS = {
-  RAMP: "ramp",
-  SINE: "sine",
-};
 
-// S&H modes
-export const SH_MODES = {
-  RANDOM: "rand",
-  SHUFFLE: "shuf",
-};
 
 // Trigger duration options
 export const TRIGGER_DURATIONS = [
@@ -83,15 +76,11 @@ export const MESSAGE_TYPES = {
   SET_TRIGGER_DURATION: "setTriggerDuration",
 
   // CV parameters
-  UPDATE_LFO: "updateLFO",
   UPDATE_PITCH: "updatePitch",
-  UPDATE_SH: "updateSH",
-  SET_SH_VALUES: "setSHValues",
 
   // UI updates from worklet
   STEP_UPDATE: "stepUpdate",
   STEP_CHANGE: "stepChange",
-  SH_VALUES_UPDATED: "shValuesUpdated",
 };
 
 // UI Classes and IDs
@@ -101,27 +90,19 @@ export const UI_CLASSES = {
   STEP_CELL_TRIGGERED: "triggered",
   PITCH_CELL: "pitch-cell",
   PITCH_CELL_HAS_VALUE: "has-value",
-  SH_CELL: "sh-cell",
   STEP_INDICATOR: "step-indicator",
   STEP_INDICATOR_ACTIVE: "active",
   MODE_SELECTOR: "mode-selector",
   MODE_SELECTOR_ACTIVE: "active",
 };
 
-// Default LFO configuration
-export const DEFAULT_LFO = {
-  waveform: LFO_WAVEFORMS.RAMP,
-  rate: 1,
-  duty: 0.5,
-  width: 1.0,
-  phase: 0, // Phase offset 0-1 (0 = no offset, 1 = full cycle)
-  depth: 1.0, // LFO depth/amplitude
-};
 
-// Default S&H configuration
-export const DEFAULT_SH = {
-  mode: SH_MODES.RANDOM,
-  width: 1.0,
+// Mode icons
+export const MODE_ICONS = {
+  'trigger': '⚡',
+  'pitch': '🎹',
+  'clock': '🕒',
+  'ramp': '📈',
 };
 
 // Color constants
@@ -135,5 +116,4 @@ export const COLORS = {
   TRIGGER_RED: "#ff3366",
   GRID_LINE: "#444",
   STEP_MARKER: "#555",
-  LFO_WAVEFORM: "#00ff88",
 };
