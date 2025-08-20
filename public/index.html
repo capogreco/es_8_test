@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ES-8 Sequencer - Minimalist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sequencer">
+      <!-- Transport -->
+      <div class="transport">
+        <button class="transport-btn" id="initBtn" title="Initialize Audio">●</button>
+        <button class="transport-btn" id="playBtn" title="Play/Stop">▶</button>
+        <button class="transport-btn" id="clearBtn" title="Clear All">✕</button>
+        
+        <div class="transport-spacer"></div>
+        
+        <input type="text" class="param-input" id="cycleTime" value="2.0">
+        <span class="param-label">s</span>
+        
+        <input type="text" class="param-input" id="subdivisions" value="16">
+        <span class="param-label">div</span>
+        
+        <div class="grid-controls">
+          <span class="subdivisions-display" id="gridDisplay">16</span>
+          <div class="grid-zoom">
+            <button class="zoom-btn" id="zoomOut">−</button>
+            <button class="zoom-btn" id="zoomIn">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Channel Selector -->
+      <div class="channels">
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="0">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="0">1</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="0">■</div>
+            <div class="visibility-checkbox" data-channel="0" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="1">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="1">2</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="1">■</div>
+            <div class="visibility-checkbox" data-channel="1" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="2">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="2">3</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="2">■</div>
+            <div class="visibility-checkbox" data-channel="2" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="3">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="3">4</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="3">■</div>
+            <div class="visibility-checkbox" data-channel="3" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="4">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="4">5</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="4">■</div>
+            <div class="visibility-checkbox" data-channel="4" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="5">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="5">6</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="5">■</div>
+            <div class="visibility-checkbox" data-channel="5" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="6">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="6">7</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="6">■</div>
+            <div class="visibility-checkbox" data-channel="6" title="Show channel">□</div>
+          </div>
+        </div>
+        <div class="channel-block">
+          <div class="step-indicator" data-channel="7">
+            <div class="step-indicator-bar"></div>
+          </div>
+          <div class="channel-select" data-channel="7">8</div>
+          <div class="channel-controls">
+            <div class="channel-mode trigger" data-channel="7">■</div>
+            <div class="visibility-checkbox" data-channel="7" title="Show channel">□</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context Panel -->
+      <div class="context-panel" id="contextPanel">
+        <div class="context-header" id="contextHeader">CH1: TRIGGER</div>
+        <div class="context-params" id="contextParams">
+          <!-- Dynamic content based on mode -->
+        </div>
+        <div class="context-viz" id="contextViz" style="display: none;">
+          <!-- Visualization canvas -->
+        </div>
+      </div>
+
+      <!-- Multi-Channel View -->
+      <div class="pattern-container">
+        <div id="multiChannelView">
+          <!-- Visible channel grids will be generated here -->
+        </div>
+      </div>
+
+
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <span class="status-message" id="status">Ready</span>
+        <span class="status-info" id="info">ES-8 SEQUENCER</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../src/main.js"></script>
+</body>
+</html>

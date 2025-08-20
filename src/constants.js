@@ -42,6 +42,14 @@ export const SH_MODES = {
   SHUFFLE: "shuf",
 };
 
+// Trigger duration options
+export const TRIGGER_DURATIONS = [
+  { label: "Short", value: 8 }, // ~0.167ms
+  { label: "20ms", value: 960 }, // 20ms at 48kHz
+  { label: "50ms", value: 2400 }, // 50ms
+  { label: "100ms", value: 4800 }, // 100ms
+];
+
 // Pitch/1V per octave constants
 export const PITCH_CONSTANTS = {
   MIN_SEMITONES: -120,
@@ -81,6 +89,7 @@ export const MESSAGE_TYPES = {
   SET_SH_VALUES: "setSHValues",
 
   // UI updates from worklet
+  STEP_UPDATE: "stepUpdate",
   STEP_CHANGE: "stepChange",
   SH_VALUES_UPDATED: "shValuesUpdated",
 };
@@ -124,4 +133,7 @@ export const COLORS = {
   TEXT_LIGHT: "#e0e0e0",
   TEXT_DIM: "#888",
   TRIGGER_RED: "#ff3366",
+  GRID_LINE: "#444",
+  STEP_MARKER: "#555",
+  LFO_WAVEFORM: "#00ff88",
 };

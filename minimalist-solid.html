@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ES-8 Sequencer - Solid.js</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 11px;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .sequencer {
+      width: 100%;
+      max-width: 800px;
+      background: #000;
+      border: 1px solid #222;
+    }
+
+    /* Transport Bar */
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-bottom: 1px solid #222;
+      background: #050505;
+    }
+
+    .transport-btn {
+      width: 24px;
+      height: 24px;
+      background: #111;
+      border: 1px solid #333;
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.1s;
+    }
+
+    .transport-btn:hover {
+      background: #1a1a1a;
+      color: #888;
+    }
+
+    .transport-btn.active {
+      color: #fff;
+      background: #222;
+      box-shadow: 0 0 5px rgba(255,255,255,0.2);
+    }
+
+    .transport-spacer {
+      width: 20px;
+    }
+
+    .param-input {
+      background: #000;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 4px 6px;
+      width: 40px;
+      text-align: center;
+      font-family: inherit;
+      font-size: 11px;
+    }
+
+    .param-input:focus {
+      outline: none;
+      border-color: #666;
+      background: #111;
+    }
+
+    .param-label {
+      color: #444;
+      margin-left: 2px;
+    }
+
+    /* Channel Selector */
+    .channels {
+      display: flex;
+      padding: 10px;
+      gap: 2px;
+      background: #000;
+      border-bottom: 1px solid #222;
+    }
+
+    .channel-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .channel-controls {
+      display: flex;
+      gap: 2px;
+      width: 100%;
+    }
+
+    .channel-select {
+      width: 100%;
+      aspect-ratio: 2/1;
+      background: #111;
+      border: 1px solid #222;
+      color: #444;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      transition: all 0.1s;
+    }
+
+    .channel-select:hover {
+      background: #1a1a1a;
+      color: #666;
+    }
+
+    .channel-select.active {
+      background: #222;
+      color: #fff;
+      border-color: #444;
+      box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    }
+
+    .channel-mode {
+      flex: 1;
+      height: 16px;
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.1s;
+      letter-spacing: 0.5px;
+    }
+
+    .channel-mode:hover {
+      color: #555;
+    }
+
+    .channel-mode.trigger { color: #666; }
+    .channel-mode.lfo { color: #666; }
+    .channel-mode.pitch { color: #666; }
+    .channel-mode.sh { color: #666; }
+
+    /* Step Indicators */
+    .step-indicator {
+      width: 100%;
+      height: 2px;
+      background: #0a0a0a;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 2px;
+    }
+
+    .step-indicator-bar {
+      position: absolute;
+      width: 2px;
+      height: 100%;
+      background: #666;
+      left: 0;
+    }
+
+    .channel-block.active .step-indicator-bar {
+      background: #fff;
+    }
+
+    /* Visibility checkboxes */
+    .visibility-checkbox {
+      flex: 1;
+      height: 16px;
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      transition: all 0.1s;
+    }
+
+    .visibility-checkbox:hover {
+      background: #1a1a1a;
+      color: #555;
+    }
+
+    .visibility-checkbox.checked {
+      color: #666;
+      background: #111;
+      border-color: #333;
+    }
+
+    /* Pattern Container */
+    .pattern-container {
+      padding: 10px;
+      background: #000;
+      border-bottom: 1px solid #222;
+    }
+
+    /* Multi-channel view */
+    .multi-channel-view {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .channel-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px;
+      background: #0a0a0a;
+      border-radius: 2px;
+    }
+
+    .channel-row.selected {
+      background: #111;
+      border: 1px solid #222;
+    }
+
+    .channel-label {
+      width: 20px;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
+    }
+
+    .channel-row.selected .channel-label {
+      color: #fff;
+    }
+
+    .pattern-grid {
+      display: grid;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .pattern-step {
+      aspect-ratio: 1;
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      cursor: pointer;
+      transition: all 0.05s;
+      position: relative;
+    }
+
+    .pattern-step:hover {
+      background: #111;
+      border-color: #333;
+    }
+
+    .pattern-step.active {
+      background: #f0f0f0;
+      border-color: #fff;
+    }
+
+    .pattern-step.current::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border: 1px solid #fff;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* Pitch input cells */
+    .pitch-cell {
+      aspect-ratio: 1;
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      color: #666;
+      text-align: center;
+      font-size: 9px;
+      font-family: inherit;
+      padding: 0;
+      cursor: text;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .pitch-cell:focus {
+      outline: none;
+      border-color: #444;
+      background: #111;
+      color: #fff;
+    }
+    
+    .pitch-cell.current {
+      box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+
+    /* Status */
+    .status-bar {
+      padding: 8px 10px;
+      background: #050505;
+      color: #333;
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .status-message {
+      color: #444;
+    }
+
+    /* Grid zoom controls */
+    .grid-controls {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    .zoom-btn {
+      width: 16px;
+      height: 16px;
+      background: #111;
+      border: 1px solid #222;
+      color: #444;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .zoom-btn:hover {
+      background: #1a1a1a;
+      color: #666;
+    }
+
+    /* Drag state */
+    body.dragging {
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Load app -->
+  <script type="module">
+    import { render } from 'https://cdn.skypack.dev/solid-js/web';
+    import { App } from './minimalist-solid.js';
+    
+    // Render the app
+    render(App, document.getElementById('app'));
+  </script>
+</body>
+</html>

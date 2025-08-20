@@ -84,174 +84,82 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
     // Handle control messages
     this.port.onmessage = (event) => {
-      const { type, data } = event.data;
+      const { type, state } = event.data;
 
       switch (type) {
         case "start":
+          // First, apply the complete state that comes with the start command.
+          this._applyState(state);
+          
+          // Then, initialize playback.
           this.isPlaying = true;
           this.isStopped = false;
-          // Reset master phasor
           this.masterPhasor = 0;
           this.currentCycleSample = 0;
-          // Reset step tracking
           this.previousSteps.fill(-1);
           this.previousGlobalStep = -1;
-          // Reset LFO phases and timing logs
           this.lastGlobalStepTime = currentTime;
+
           for (let channel = 0; channel < NUM_CHANNELS; channel++) {
             this.channels[channel].lfoPhase = 0;
             this.channels[channel].lastStepTime = currentTime;
-            // Don't reset polyrhythm sample count - let it free run
-            // this.channels[channel].polyrhythmSampleCount = 0;
           }
           break;
 
         case "stop":
           this.isPlaying = false;
           this.isStopped = true;
-          // Reset all channel phasors
           this.masterPhasor = 0;
           this.currentCycleSample = 0;
+
+          // Reset polyrhythm counters and LFO phase on a full stop
           for (let channel = 0; channel < NUM_CHANNELS; channel++) {
-            // Reset polyrhythm counters on stop (full reset)
             this.channels[channel].polyrhythmSampleCount = 0;
             this.channels[channel].lfoPhase = 0;
           }
-          // Clear all active triggers
-          this.triggerStates.forEach((state) => {
-            state.active = false;
-            state.sampleCount = 0;
+
+          // Clear any active (stuck) triggers
+          this.triggerStates.forEach((trigger) => {
+            trigger.active = false;
+            trigger.sampleCount = 0;
           });
           break;
 
-        case "pause":
-          this.isPlaying = false;
-          this.isStopped = false;
-          // Don't reset phasors - maintain position
-          break;
-
-        case "updatePattern":
-          if (
-            data.channel >= 0 &&
-            data.channel < NUM_CHANNELS &&
-            data.step >= 0 &&
-            data.step < MAX_SUBDIVISIONS
-          ) {
-            this.pattern[data.channel][data.step] = data.active;
-          }
-          break;
-
-        case "clearPattern":
-          this.pattern = Array(8)
-            .fill(null)
-            .map(() => Array(96).fill(false));
-          // Also clear pitch data
-          for (let channel = 0; channel < NUM_CHANNELS; channel++) {
-            this.channels[channel].pitches = Array(96).fill(null);
-          }
-          break;
-
-        case "setCycleTime":
-          this.cycleTime = data;
-          this.updateTiming();
-
-          break;
-
-        case "setSubdivisions": {
-          const wasPlaying = this.isPlaying;
-          if (wasPlaying) this.isPlaying = false;
-
-          this.subdivisions = data;
-          this.currentStep = 0;
-          this.samplesSinceLastStep = 0;
-          this.updateTiming();
-
-          if (wasPlaying) this.isPlaying = true;
-          break;
-        }
-
-        case "setChannelMode":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].mode = data.mode;
-            this.channels[data.channel].cvMode = data.cvMode;
-            if (data.lfo) {
-              this.channels[data.channel].lfo = data.lfo;
-            }
-            if (data.sh) {
-              this.channels[data.channel].sh = data.sh;
-            }
-          }
-          break;
-
-        case "setTriggerDuration":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].triggerDuration = data.duration;
-          }
-          break;
-
-        case "setCVMode":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].cvMode = data.cvMode;
-          }
-          break;
-
-        case "updateLFO":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].lfo = data.lfo;
-          }
-          break;
-
-        case "updatePitch":
-          if (
-            data.channel >= 0 &&
-            data.channel < NUM_CHANNELS &&
-            data.step >= 0 &&
-            data.step < MAX_SUBDIVISIONS
-          ) {
-            this.channels[data.channel].pitches[data.step] = data.pitch;
-          }
-          break;
-
-        case "updateSH":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].sh = data.sh;
-          }
-          break;
-
-        case "setSHValues":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].sh.values = data.values;
-          }
-          break;
-
-        case "setChannelSubdivisions":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].subdivisions = data.subdivisions;
-            // Note: useCustomSubdivisions flag is managed by the UI separately
-            // Don't set it here - just update the subdivision value
-          }
-          break;
-
-        case "setPolyrhythm":
-          if (data.channel >= 0 && data.channel < NUM_CHANNELS) {
-            this.channels[data.channel].usePolyrhythm = data.enabled;
-            if (data.steps !== undefined) {
-              this.channels[data.channel].polyrhythmSteps = data.steps;
-
-              // CRITICAL: When polyrhythm is enabled and custom subdivisions are disabled,
-              // the subdivisions MUST equal polyrhythmSteps
-              if (
-                data.enabled &&
-                !this.channels[data.channel].useCustomSubdivisions
-              ) {
-                this.channels[data.channel].subdivisions = data.steps;
-              }
-            }
-            this.updateTiming(); // Recalculate timing
-          }
+        case "setState":
+          // For live updates while the sequencer is running, apply the new state.
+          this._applyState(state);
           break;
       }
     };
+  }
+
+  // Applies a complete state object to the worklet instance
+  _applyState(state) {
+    if (!state) return;
+
+    // Update timing parameters
+    if (state.cycleTime !== undefined) {
+      this.cycleTime = state.cycleTime;
+    }
+    if (state.subdivisions !== undefined) {
+      this.subdivisions = state.subdivisions;
+    }
+
+    // Update pattern data
+    if (state.pattern) {
+      this.pattern = state.pattern;
+    }
+
+    // Update detailed channel configurations
+    if (state.channels) {
+      for (let i = 0; i < NUM_CHANNELS && i < state.channels.length; i++) {
+        // Use Object.assign for a safe merge of properties
+        Object.assign(this.channels[i], state.channels[i]);
+      }
+    }
+
+    // After applying state, always recalculate timing values
+    this.updateTiming();
   }
 
   // Helper method to get the phasor for a channel
@@ -382,6 +290,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
     currentTime,
     sampleIndex,
     sampleRate,
+    stepChanges,
   ) {
     // Check if step changed
     if (currentStep === this.previousSteps[channel]) {
@@ -407,11 +316,10 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
     this.previousSteps[channel] = currentStep;
 
-    // Send per-channel step change for UI
-    this.port.postMessage({
-      type: "stepChange",
-      step: currentStep,
+    // Add to step changes array for bulk update
+    stepChanges.push({
       channel: channel,
+      step: currentStep,
       totalSteps: patternLength,
       isPolyrhythm: channelConfig.usePolyrhythm,
       time: currentTime + sampleIndex / sampleRate,
@@ -445,6 +353,16 @@ class SequencerProcessor extends AudioWorkletProcessor {
       if (this.pattern[channel][currentStep]) {
         this.triggerStates[channel].active = true;
         this.triggerStates[channel].sampleCount = 0;
+        
+        // Log trigger activation for debugging
+        if (!this.triggerLogCount) this.triggerLogCount = {};
+        if (!this.triggerLogCount[channel]) this.triggerLogCount[channel] = 0;
+        if (this.triggerLogCount[channel]++ < 3) {
+          this.port.postMessage({
+            type: "log",
+            message: `Trigger fired on channel ${channel + 1}, step ${currentStep}`
+          });
+        }
       }
     } else if (
       channelConfig.mode === "cv" &&
@@ -529,7 +447,25 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
   process(_inputs, outputs, _parameters) {
     const output = outputs[0];
+    
+    // Log channel availability once
+    if (!this.channelsLogged) {
+      this.channelsLogged = true;
+      this.port.postMessage({
+        type: "log",
+        message: `AudioWorklet: ${output.length} output channels available`
+      });
+      for (let i = 0; i < output.length; i++) {
+        this.port.postMessage({
+          type: "log",
+          message: `Channel ${i + 1}: ${output[i] ? 'Available' : 'Null'}, length: ${output[i]?.length || 0}`
+        });
+      }
+    }
 
+    // Track if any steps changed for bulk update
+    const stepChanges = [];
+    
     // Process each sample in the block
     for (let sampleIndex = 0; sampleIndex < 128; sampleIndex++) {
       // Update polyrhythm counters for free-running behavior (but not when stopped)
@@ -623,6 +559,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
             currentTime,
             sampleIndex,
             sampleRate,
+            stepChanges,
           );
         }
       }
@@ -634,22 +571,66 @@ class SequencerProcessor extends AudioWorkletProcessor {
         channel++
       ) {
         const channelData = output[channel];
-        if (!channelData) continue;
+        if (!channelData) {
+          // Log missing channel data for channels 3-8
+          if (channel >= 2 && !this.missingChannelLogged) {
+            this.missingChannelLogged = true;
+            this.port.postMessage({
+              type: "log",
+              message: `Channel ${channel + 1} output buffer is null - only ${output.length} channels available`
+            });
+          }
+          continue;
+        }
 
         const channelConfig = this.channels[channel];
         const triggerState = this.triggerStates[channel];
 
         if (channelConfig.mode === "trigger") {
           // Generate trigger pulse
-          channelData[sampleIndex] = this.generateTriggerOutput(
-            channel,
-            triggerState,
-          );
+          const triggerValue = this.generateTriggerOutput(channel, triggerState);
+          channelData[sampleIndex] = triggerValue;
+          
+          // Debug log for channels 3-8 when triggers fire
+          if (channel >= 2 && triggerValue > 0 && !this.triggerDebugLogged) {
+            this.triggerDebugLogged = true;
+            this.port.postMessage({
+              type: "log",
+              message: `Channel ${channel + 1} trigger active: ${triggerValue}`
+            });
+          }
         } else if (channelConfig.mode === "cv") {
           // Generate CV output
           channelData[sampleIndex] = this.generateCVOutput(channelConfig);
         }
       }
+    }
+
+    // Send step updates if any steps changed
+    if (stepChanges.length > 0) {
+      // Send individual step changes for minimalist.js compatibility
+      stepChanges.forEach(change => {
+        this.port.postMessage({
+          type: "stepChange",
+          channel: change.channel,
+          step: change.step,
+          totalSteps: change.totalSteps,
+          isPolyrhythm: change.isPolyrhythm,
+          time: change.time,
+          audioTime: change.audioTime,
+        });
+      });
+      
+      // Also send bulk update for sequencer.js compatibility
+      const channelSteps = Array(NUM_CHANNELS).fill(null).map((_, channel) => {
+        const change = stepChanges.find(c => c.channel === channel);
+        return change ? { step: change.step } : { step: this.previousSteps[channel] || 0 };
+      });
+      
+      this.port.postMessage({
+        type: "stepUpdate",
+        channels: channelSteps,
+      });
     }
 
     return true; // Keep processor running
