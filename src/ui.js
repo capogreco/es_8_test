@@ -28,6 +28,24 @@ function getChannelMode(channel) {
   return channel.mode;
 }
 
+function createModeButton(ch, mode) {
+  return `<button class="mode-btn" data-channel="${ch}" data-param="mode">${MODE_ICONS[mode]}</button>`;
+}
+
+function createStepsInput(ch, value, disabled = false) {
+  const classes = disabled ? 'steps-input disabled-input' : 'steps-input';
+  const disabledAttr = disabled ? 'disabled' : '';
+  return `
+    <span class="param-label">s:</span>
+    <input type="text" class="param-input ${classes}" data-channel="${ch}" data-param="steps" value="${value}" title="steps" ${disabledAttr}>
+  `;
+}
+
+function createCoupleControl(ch, isCoupled) {
+  const checked = isCoupled ? 'checked' : '';
+  return `<span class="param-label">⬆️:</span><input type="checkbox" class="couple-checkbox" data-channel="${ch}" data-param="isCoupled" ${checked} title="couple to channel above">`;
+}
+
 // --- Rendering Functions ---
 
 export function renderAll() {
@@ -59,17 +77,20 @@ export function renderMultiChannelView() {
 
   // Render channels 1-6 only (channels 7-8 are controlled from transport)
   for (let ch = 0; ch < 6; ch++) {
+    const channel = state.channels[ch];
     const channelRow = document.createElement('div');
-    channelRow.className = 'channel-row';
+    channelRow.className = `channel-row ${channel.isMuted ? 'muted' : ''}`;
     channelRow.dataset.channel = ch;
 
-    // Channel label
+    // Channel label with mute indicator
     const label = document.createElement('div');
     label.className = 'channel-label';
-    label.textContent = ch + 1;
+    label.textContent = channel.isMuted ? `${ch + 1}M` : ch + 1;
+    if (channel.isMuted) {
+      label.classList.add('muted');
+    }
     channelRow.appendChild(label);
 
-    const channel = state.channels[ch];
     const mode = getChannelMode(channel);
 
     // Channel parameters section - minimal inline controls
@@ -78,29 +99,23 @@ export function renderMultiChannelView() {
     
     if (mode === 'trigger') {
       params.innerHTML = `
-        <button class="mode-btn" data-channel="${ch}" data-param="mode">${MODE_ICONS[mode]}</button>
-        <span class="param-label">s:</span>
-        <input type="text" class="param-input steps-input" data-channel="${ch}" data-param="steps" value="${channel.steps}" title="steps">
+        ${createModeButton(ch, mode)}
+        ${createStepsInput(ch, channel.steps)}
         <span class="param-label">t:</span>
         <input type="text" class="param-input dur-input" data-channel="${ch}" data-param="triggerDuration" value="${channel.triggerDuration}" title="duration">
       `;
     } else if (mode === 'pitch') {
       const showCoupleToggle = (ch + 1) % 2 === 0; // Channels 2, 4, 6
-      
-      // For coupled channels, show the parent's steps and disable the input
       const isCoupled = showCoupleToggle && channel.isCoupled;
       const stepsValue = isCoupled ? state.channels[ch - 1].steps : channel.steps;
-      const stepsDisabled = isCoupled ? 'disabled' : '';
-      const stepsClass = isCoupled ? 'steps-input disabled-input' : 'steps-input';
       
       const coupleHTML = showCoupleToggle ? 
-        `<span class="param-label">⬆️:</span><input type="checkbox" class="couple-checkbox" data-channel="${ch}" data-param="isCoupled" ${channel.isCoupled ? 'checked' : ''} title="couple to channel above">` : 
+        createCoupleControl(ch, channel.isCoupled) : 
         `<span class="spacer"></span>`;
       
       params.innerHTML = `
-        <button class="mode-btn" data-channel="${ch}" data-param="mode">${MODE_ICONS[mode]}</button>
-        <span class="param-label">s:</span>
-        <input type="text" class="param-input ${stepsClass}" data-channel="${ch}" data-param="steps" value="${stepsValue}" title="steps" ${stepsDisabled}>
+        ${createModeButton(ch, mode)}
+        ${createStepsInput(ch, stepsValue, isCoupled)}
         ${coupleHTML}
       `;
     } else if (mode === 'clock') {

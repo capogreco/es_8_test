@@ -1,5 +1,67 @@
 import { SEQUENCER_CONSTANTS, CHANNEL_MODES, RAMP_POLARITIES } from "./constants.js";
 
+// --- Channel Factory Functions ---
+
+function createTriggerChannel() {
+  return {
+    mode: CHANNEL_MODES.TRIGGER,
+    pitches: Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(null),
+    triggerDuration: SEQUENCER_CONSTANTS.TRIGGER_DURATION_SAMPLES,
+    steps: 16,
+    currentStep: -1,
+    isMuted: false,
+  };
+}
+
+function createPitchChannel(isCoupled = true) {
+  return {
+    mode: CHANNEL_MODES.PITCH,
+    pitches: Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(null),
+    triggerDuration: SEQUENCER_CONSTANTS.TRIGGER_DURATION_SAMPLES,
+    steps: 16,
+    currentStep: -1,
+    isCoupled,
+    isMuted: false,
+  };
+}
+
+function createClockChannel() {
+  return {
+    mode: CHANNEL_MODES.CLOCK,
+    duration: SEQUENCER_CONSTANTS.TRIGGER_DURATION_SAMPLES,
+    currentStep: -1,
+    isMuted: false,
+  };
+}
+
+function createRampChannel(polarity = RAMP_POLARITIES.POSITIVE, amplitude = 12) {
+  return {
+    mode: CHANNEL_MODES.RAMP,
+    polarity,
+    amplitude,
+    currentStep: -1,
+    isMuted: false,
+  };
+}
+
+function createSequencerChannels() {
+  return [
+    createTriggerChannel(),  // Channel 1
+    createPitchChannel(),    // Channel 2 (coupled by default)
+    createTriggerChannel(),  // Channel 3  
+    createPitchChannel(),    // Channel 4 (coupled by default)
+    createTriggerChannel(),  // Channel 5
+    createPitchChannel(),    // Channel 6 (coupled by default)
+  ];
+}
+
+function createUtilityChannels() {
+  return [
+    createRampChannel(),     // Channel 7
+    createClockChannel(),    // Channel 8
+  ];
+}
+
 const initialState = {
   // Global params
   subdivisions: 16,
@@ -10,51 +72,7 @@ const initialState = {
 
   // Sequencer Data
   pattern: Array(SEQUENCER_CONSTANTS.MAX_CHANNELS).fill(null).map(() => Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(false)),
-  channels: (() => {
-    // First, create the 6 user-configurable sequencer channels
-    const sequencerChannels = Array.from({ length: SEQUENCER_CONSTANTS.NUM_SEQUENCER_CHANNELS }).map((_, index) => {
-      const isOddChannel = (index + 1) % 2 !== 0;
-      const isPitchChannel = !isOddChannel;
-
-      const channelConfig = {
-        // Odd channels (1, 3, 5) default to TRIGGER
-        // Even channels (2, 4, 6) default to PITCH
-        mode: isOddChannel ? CHANNEL_MODES.TRIGGER : CHANNEL_MODES.PITCH,
-        
-        // Default properties for a sequencer channel
-        pitches: Array(SEQUENCER_CONSTANTS.MAX_SUBDIVISIONS).fill(null),
-        triggerDuration: SEQUENCER_CONSTANTS.TRIGGER_DURATION_SAMPLES,
-        steps: 16, // NEW: Polyrhythm step count for every sequencer channel
-        currentStep: -1,
-      };
-
-      // NEW: Add coupling property ONLY to pitch channels
-      if (isPitchChannel) {
-        channelConfig.isCoupled = true; // Default to coupled
-      }
-
-      return channelConfig;
-    });
-
-    // Now, add the two dedicated utility channels
-    const utilityChannels = [
-      // Channel 7: Phase Ramp
-      {
-        mode: CHANNEL_MODES.RAMP,
-        polarity: RAMP_POLARITIES.POSITIVE,
-        amplitude: 12, // Default amplitude in volts
-        currentStep: -1,
-      },
-      // Channel 8: Clock
-      {
-        mode: CHANNEL_MODES.CLOCK,
-        duration: SEQUENCER_CONSTANTS.TRIGGER_DURATION_SAMPLES,
-        currentStep: -1,
-      }
-    ];
-
-    return [...sequencerChannels, ...utilityChannels];
-  })(),
+  channels: [...createSequencerChannels(), ...createUtilityChannels()],
 };
 
 export class StateManager {
@@ -171,3 +189,6 @@ export class StateManager {
 }
 
 export const stateManager = new StateManager(initialState);
+
+// Export factory functions for external use
+export { createTriggerChannel, createPitchChannel, createClockChannel, createRampChannel };

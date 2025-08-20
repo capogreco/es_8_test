@@ -2,7 +2,8 @@ import { SEQUENCER_CONSTANTS } from './constants.js';
 
 const { NUM_CHANNELS, NUM_SEQUENCER_CHANNELS, SAMPLE_RATE } = SEQUENCER_CONSTANTS;
 
-// Helper function to generate a trigger pulse
+// --- Audio Generation Helper Functions ---
+
 function generateTrigger(triggerState, durationSamples) {
   if (triggerState.active) {
     if (triggerState.sampleCount < durationSamples) {
@@ -13,6 +14,39 @@ function generateTrigger(triggerState, durationSamples) {
     }
   }
   return 0.0;
+}
+
+function generatePitchCV(currentPitch) {
+  return (currentPitch || 0) / 120.0;
+}
+
+function generateRampCV(masterPhasor, polarity, amplitude) {
+  const polarityMultiplier = polarity === '-ve' ? -1 : 1;
+  const normalizedAmplitude = amplitude / 10.0; // Scale volts to audio range
+  let value = masterPhasor * polarityMultiplier * normalizedAmplitude;
+  
+  // Offset negative ramp to keep it positive
+  if (polarityMultiplier === -1) {
+    value += normalizedAmplitude;
+  }
+  
+  return value;
+}
+
+// --- Timing Calculation Helpers ---
+
+function calculateEffectiveSteps(channel, channelIndex, channels, defaultSubdivisions) {
+  if (channel.mode === 'pitch' && channel.isCoupled && channelIndex > 0) {
+    const parent = channels[channelIndex - 1];
+    if (parent?.mode === 'trigger') {
+      return parent.steps || defaultSubdivisions;
+    }
+  }
+  return channel.steps || defaultSubdivisions;
+}
+
+function shouldUseParentTiming(channel, channelIndex, channels) {
+  return channel.mode === 'pitch' && channel.isCoupled && channelIndex > 0 && channels[channelIndex - 1]?.mode === 'trigger';
 }
 
 class SequencerProcessor extends AudioWorkletProcessor {
@@ -77,13 +111,7 @@ class SequencerProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < NUM_SEQUENCER_CHANNELS; i++) {
       const channel = this.channels[i] || {};
-      let effectiveSteps = channel.steps || this.subdivisions;
-      if (channel.mode === 'pitch' && channel.isCoupled && i > 0) {
-        const parent = this.channels[i - 1];
-        if (parent?.mode === 'trigger') {
-          effectiveSteps = parent.steps || this.subdivisions;
-        }
-      }
+      const effectiveSteps = calculateEffectiveSteps(channel, i, this.channels, this.subdivisions);
       const channelCycleSamples = (globalCycleSamples / this.subdivisions) * effectiveSteps;
       this.phaseIncrements[i] = channelCycleSamples > 0 ? 1.0 / channelCycleSamples : 0;
     }
@@ -118,21 +146,13 @@ class SequencerProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < NUM_SEQUENCER_CHANNELS; i++) {
           const channel = this.channels[i];
           
-          // For coupled pitch channels, use parent's timing completely
+          // Calculate step position based on coupling
           let patternLength, currentStep;
-          if (channel.mode === 'pitch' && channel.isCoupled && i > 0) {
+          if (shouldUseParentTiming(channel, i, this.channels)) {
             const parent = this.channels[i - 1];
-            if (parent?.mode === 'trigger') {
-              // Use parent's pattern length and step position
-              patternLength = parent.steps || this.subdivisions;
-              currentStep = Math.floor(this.channelPhasors[i-1] * patternLength);
-            } else {
-              // Fallback if parent isn't a trigger
-              patternLength = channel.steps || this.subdivisions;
-              currentStep = Math.floor(this.channelPhasors[i] * patternLength);
-            }
+            patternLength = parent.steps || this.subdivisions;
+            currentStep = Math.floor(this.channelPhasors[i-1] * patternLength);
           } else {
-            // Normal behavior for uncoupled channels
             patternLength = channel.steps || this.subdivisions;
             currentStep = Math.floor(this.channelPhasors[i] * patternLength);
           }
@@ -183,21 +203,25 @@ class SequencerProcessor extends AudioWorkletProcessor {
         if (!output[ch]) continue;
         
         let value = 0.0;
+        
+        // If channel is muted, output silence
+        if (channelConfig?.isMuted) {
+          output[ch][sampleIndex] = 0.0;
+          continue;
+        }
+        
         switch(channelConfig?.mode) {
           case 'trigger':
             value = generateTrigger(this.triggerStates[ch], channelConfig.triggerDuration);
             break;
           case 'pitch':
-            value = (channelConfig.currentPitch || 0) / 120.0;
+            value = generatePitchCV(channelConfig.currentPitch);
             break;
           case 'clock':
             value = generateTrigger(this.triggerStates[ch], channelConfig.duration);
             break;
           case 'ramp':
-            const polarity = channelConfig.polarity === '-ve' ? -1 : 1;
-            const amp = (channelConfig.amplitude || 10) / 10.0; // Scale volts to audio range
-            value = (this.masterPhasor * polarity * amp);
-            if(polarity === -1) value += amp; // Offset negative ramp
+            value = generateRampCV(this.masterPhasor, channelConfig.polarity, channelConfig.amplitude || 10);
             break;
         }
         output[ch][sampleIndex] = value;

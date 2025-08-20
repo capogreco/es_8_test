@@ -46,27 +46,32 @@ function toggleStep(channel, step, value) {
   
   sendStateToWorklet();
   
-  // If activating a trigger, focus the corresponding pitch cell in coupled channel below
-  if (value && channel < 5) { // channels 0-4 can have coupled channels below
+  // Handle coupled channel behavior when trigger changes
+  if (channel < 5) { // channels 0-4 can have coupled channels below
     const state = stateManager.getState();
     const channelBelow = state.channels[channel + 1];
     
     if (channelBelow && channelBelow.mode === 'pitch' && channelBelow.isCoupled) {
-      // Re-render to update disabled/enabled state of pitch cells
-      renderAll();
-      
       // Calculate the corresponding step in the pitch channel
       const pitchPatternLength = channelBelow.steps || state.subdivisions;
       const pitchStep = step % pitchPatternLength;
       
-      // Find and focus the corresponding pitch cell after render
-      setTimeout(() => {
-        const pitchCell = els.multiChannelView.querySelector(`[data-channel="${channel + 1}"][data-step="${pitchStep}"].pitch-cell`);
-        if (pitchCell && !pitchCell.disabled) {
-          pitchCell.focus();
-          pitchCell.select();
-        }
-      }, 50); // Longer delay to ensure render is complete
+      if (value) {
+        // Activating trigger: focus the corresponding pitch cell
+        renderAll();
+        setTimeout(() => {
+          const pitchCell = els.multiChannelView.querySelector(`[data-channel="${channel + 1}"][data-step="${pitchStep}"].pitch-cell`);
+          if (pitchCell && !pitchCell.disabled) {
+            pitchCell.focus();
+            pitchCell.select();
+          }
+        }, 50);
+      } else {
+        // Deactivating trigger: clear the corresponding pitch cell content
+        stateManager.set(`channels.${channel + 1}.pitches.${pitchStep}`, null);
+        sendStateToWorklet();
+        renderAll();
+      }
     }
   }
 }
@@ -256,6 +261,11 @@ export function setupEventListeners() {
 
   els.multiChannelView.addEventListener('keydown', e => {
     if (!e.target.classList.contains('pitch-cell')) return;
+    
+    const { step, channel } = e.target.dataset;
+    const currentStep = parseInt(step);
+    const currentChannel = parseInt(channel);
+    
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
       // Only get enabled (non-disabled) pitch cells for tab navigation
@@ -268,6 +278,45 @@ export function setupEventListeners() {
       cells[nextIndex].focus();
       cells[nextIndex].select();
     }
+    
+    // Arrow key navigation
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      let targetStep = currentStep;
+      let targetChannel = currentChannel;
+      
+      if (e.key === 'ArrowLeft') {
+        targetStep = Math.max(0, currentStep - 1);
+      } else if (e.key === 'ArrowRight') {
+        const state = stateManager.getState();
+        targetStep = Math.min(state.gridSubdivisions - 1, currentStep + 1);
+      } else if (e.key === 'ArrowUp') {
+        // Move to pitch channel above (only even numbered channels: 2, 4, 6)
+        for (let ch = currentChannel - 2; ch >= 0; ch -= 2) {
+          const state = stateManager.getState();
+          if (state.channels[ch]?.mode === 'pitch') {
+            targetChannel = ch;
+            break;
+          }
+        }
+      } else if (e.key === 'ArrowDown') {
+        // Move to pitch channel below (only even numbered channels: 2, 4, 6)
+        for (let ch = currentChannel + 2; ch < 6; ch += 2) {
+          const state = stateManager.getState();
+          if (state.channels[ch]?.mode === 'pitch') {
+            targetChannel = ch;
+            break;
+          }
+        }
+      }
+      
+      // Find and focus the target cell if it exists and is enabled
+      const targetCell = els.multiChannelView.querySelector(`[data-channel="${targetChannel}"][data-step="${targetStep}"].pitch-cell:not([disabled])`);
+      if (targetCell) {
+        targetCell.focus();
+        targetCell.select();
+      }
+    }
   });
   
   els.multiChannelView.addEventListener('focusin', e => {
@@ -278,9 +327,42 @@ export function setupEventListeners() {
   // --- GLOBAL KEYBOARD SHORTCUTS ---
   
   document.addEventListener('keydown', (e) => {
-    // This guard clause is now effective because pitch cells can get focus.
+    // Skip shortcuts if user is typing in inputs
     if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
     
-    if (e.key === ' ') { e.preventDefault(); togglePlayback(); }
+    switch(e.key) {
+      case ' ': // Spacebar - Play/Stop
+        e.preventDefault(); 
+        togglePlayback(); 
+        break;
+        
+      case 'Enter': // Enter - Initialize Audio
+        e.preventDefault();
+        if (!els.initBtn.classList.contains('active')) {
+          initAudio();
+        }
+        break;
+        
+      case 'Escape': // Escape - Clear All
+        e.preventDefault();
+        clearAll();
+        break;
+        
+      case 'm': // M - Mute focused channel
+      case 'M':
+        e.preventDefault();
+        const focusedElement = document.activeElement;
+        if (focusedElement && focusedElement.classList.contains('pitch-cell')) {
+          const channelIndex = parseInt(focusedElement.dataset.channel);
+          if (channelIndex >= 0 && channelIndex < 6) {
+            const currentMuteState = stateManager.get(`channels.${channelIndex}.isMuted`);
+            stateManager.set(`channels.${channelIndex}.isMuted`, !currentMuteState);
+            sendStateToWorklet();
+            renderAll();
+            updateStatus(`Channel ${channelIndex + 1} ${!currentMuteState ? 'muted' : 'unmuted'}`);
+          }
+        }
+        break;
+    }
   });
 }

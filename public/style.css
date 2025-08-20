@@ -252,6 +252,15 @@ select.param-input {
   color: #666;
 }
 
+.channel-label.muted {
+  color: #333;
+  font-style: italic;
+}
+
+.channel-row.muted {
+  opacity: 0.5;
+}
+
 
 .pattern-grid {
   display: grid;
