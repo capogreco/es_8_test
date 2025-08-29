@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// Removed serve import - using built-in Deno.serve()
 import { extname, join } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const MIME_TYPES: Record<string, string> = {
@@ -55,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(file, {
       headers: {
         "content-type": contentType,
-        "cache-control": "no-cache", // Disable caching for development
+"cache-control": "public, max-age=3600", // Enable caching for production
       },
     });
   } catch (error) {
@@ -68,5 +68,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-console.log("Server running on http://localhost:8000");
-serve(handler, { port: 8000 });
+const port = Number(Deno.env.get("PORT")) || 8000;
+console.log(`Server running on http://localhost:${port}`);
+
+export default {
+  fetch: handler,
+  port
+};
+
+// Only start server if this is the main module
+if (import.meta.main) {
+  Deno.serve({ port }, handler);
+}
